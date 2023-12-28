@@ -17,7 +17,7 @@ if __name__ == "__main__":
   st.title("🎧 ElevenLabs Speech")
   
   with st.sidebar:
-    el_key = st.text_input("API Key _(optional)_", os.getenv("ELEVENLABS_API_KEY"), type="password")
+    el_key = st.text_input("API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")
     if el_key:
       el.set_api_key(el_key)          
       available_models = get_models()
@@ -73,11 +73,11 @@ if __name__ == "__main__":
             help="High values are recommended if the style of the speech should be exaggerated compared to the uploaded audio. Higher values can lead to more instability in the generated speech. Setting this to 0.0 will greatly increase generation speed and is the default setting."
           )
   
-  st.subheader("Text")
-  text_to_generate = st.text_area("Text", label_visibility="collapsed")
-  generate_bnt = st.button("Generate Speech")
-  
-  if not el_key:
+  if el_key:
+    st.subheader("Text")
+    text_to_generate = st.text_area("Text", label_visibility="collapsed")
+    generate_bnt = st.button("Generate Speech")
+  else:
     st.warning("Enter your ElevenLabs API Key to continue.")
   
   if el_key and generate_bnt and text_to_generate:
