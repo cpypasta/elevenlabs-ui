@@ -7,7 +7,9 @@ load_dotenv()
 
 @st.cache_data
 def get_voices() -> list[el.Voice]:
-  return list(el.voices())
+  voices = list(el.voices())
+  voices.sort(key=lambda x: x.name)
+  return voices
 
 @st.cache_data
 def get_models() -> list[el.Model]:
@@ -20,13 +22,13 @@ if __name__ == "__main__":
     el_key = st.text_input("API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")
     if el_key:
       el.set_api_key(el_key)          
-      available_models = get_models()
-      available_model_ids = [m.model_id for m in available_models]
-      available_model_names = [m.name for m in available_models]
-      model_name = st.selectbox("Model", available_model_names)
+      models = get_models()
+      model_ids = [m.model_id for m in models]
+      model_names = [m.name for m in models]
+      model_name = st.selectbox("Model", model_names)
       if model_name:
-        model_index = available_model_names.index(model_name)
-        model_id = available_model_ids[model_index]
+        model_index = model_names.index(model_name)
+        model_id = model_ids[model_index]
     
       el_voices = get_voices()
       el_voice_names = [f"{voice.name} ({voice.category})" for voice in el_voices]
@@ -75,7 +77,8 @@ if __name__ == "__main__":
   
   if el_key:
     st.subheader("Text")
-    text_to_generate = st.text_area("Text", label_visibility="collapsed")
+    sample_text = "Right now we just have a runnable sequence, but the chain still doesn't have any dynamic capability. There are multiple ways to do this. First, we'll look at the hard way which demonstrates the process, but keep in mind this can be simplified."
+    text_to_generate = st.text_area("Text", sample_text, label_visibility="collapsed")
     generate_bnt = st.button("Generate Speech")
   else:
     st.warning("Enter your ElevenLabs API Key to continue.")
