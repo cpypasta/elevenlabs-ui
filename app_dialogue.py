@@ -155,7 +155,7 @@ if __name__ == "__main__":
   st.header("Characters")
   st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
   st.info("Adding or changing a name will clear the dialogue.")
-  
+    
   if el_key:
     character_table = st.data_editor(
       pd.DataFrame([], columns=["Name", "Voice"]),
@@ -175,6 +175,7 @@ if __name__ == "__main__":
       }    
     )
   else:
+    character_table = pd.DataFrame()
     st.warning("Please enter an API key in the sidebar.")
   
   if not character_table.empty:
@@ -217,9 +218,13 @@ if __name__ == "__main__":
         for file in glob.glob("./audio/*.mp3"):
           os.remove(file)
         audio_files = []
-        for line in dialogue:
+        progress_text = "Generating audio..."
+        generate_audio_bar = st.progress(0, text=progress_text)
+        for i, line in enumerate(dialogue):
           audio_file = generate_and_save_audio(line, model_id, stability, simarlity_boost, style) 
           audio_files.append(audio_file)
+          generate_audio_bar.progress(round((i+1) / len(dialogue), 2), text=progress_text)
+        generate_audio_bar.empty()
         st.session_state["audio_files"] = audio_files
       
       if "audio_files" in st.session_state:        
