@@ -217,6 +217,7 @@ if __name__ == "__main__":
         st.session_state["final_audio"] = False
         for file in glob.glob("./audio/*.mp3"):
           os.remove(file)
+        os.mkdir("./audio")
         audio_files = []
         progress_text = "Generating audio..."
         generate_audio_bar = st.progress(0, text=progress_text)
