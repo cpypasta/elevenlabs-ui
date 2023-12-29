@@ -1,11 +1,14 @@
 import os, glob
+import matplotlib.pyplot as plt
 import streamlit as st
 import elevenlabs as el
 import pandas as pd
+import numpy as np
 from dotenv import load_dotenv
 from pydub import AudioSegment as seg
 
 load_dotenv()
+plt.style.use('dark_background')
 
 class Character:
   def __init__(self, name: str, voice: str, voices: list[el.Voice]) -> None:
@@ -40,18 +43,55 @@ def get_voices() -> list[el.Voice]:
 def get_models() -> list[el.Model]:
   return list(el.Models.from_api())
 
-def generate_audio(dialogue: Dialogue, model_id: str) -> bytes:
+def generate_audio(
+  dialogue: Dialogue, 
+  model_id: str,
+  stability: float, 
+  simarlity_boost: float, 
+  style: float  
+) -> bytes:
   audio = el.generate(
     text=dialogue.text,
     model=model_id,
     voice = el.Voice(
-      voice_id=dialogue.character.voice_id
+      voice_id=dialogue.character.voice_id,
+      settings=el.VoiceSettings(
+        stability=stability,
+        similarity_boost=simarlity_boost,
+        style=style
+      )
     )
   )  
   return audio
 
+def generate_waveform() -> plt.Figure:
+  audio = seg.from_mp3("./audio/dialogue.mp3")
+  audio_array = np.frombuffer(audio.raw_data, dtype=np.int16)
+  frame_rate = audio.frame_rate        
+  num_samples = len(audio_array)
+  length = num_samples / float(frame_rate)
+  time_axis = np.linspace(0, length, num_samples) 
+  fig, ax = plt.subplots()
+  plt.gca().axis("off")       
+  ax.plot(time_axis, audio_array)
+  fig.set_figheight(2)
+  return fig
+
 def show_final_audio() -> bool:
   return "final_audio" in st.session_state and st.session_state.final_audio
+
+def generate_and_save_audio(
+  line: Dialogue, 
+  model_id: str, 
+  stability: float, 
+  simarlity_boost: float, 
+  style: float
+) -> str:
+  audio = generate_audio(line, model_id, stability, simarlity_boost, style)
+  audio_file = f"./audio/line{line.line}.mp3"
+  with open(audio_file, "wb") as f:
+    f.write(audio)  
+  return audio_file
 
 
 if __name__ == "__main__":
@@ -80,35 +120,69 @@ if __name__ == "__main__":
         # voice sample
         if el_voice_details.preview_url:
           st.audio(el_voice_details.preview_url, format="audio/mp3")
+          
+      with st.expander("Voice Options"):              
+        stability = st.slider(
+          "Stability", 
+          0.0, 
+          1.0, 
+          value=0.3, 
+          help="Increasing stability will make the voice more consistent between re-generations, but it can also make it sounds a bit monotone. On longer text fragments we recommend lowering this value."
+        )
+        simarlity_boost = st.slider(
+          "Clarity + Simalarity Enhancement",
+          0.0,
+          1.0,
+          value=0.9,
+          help="High enhancement boosts overall voice clarity and target speaker similarity. Very high values can cause artifacts, so adjusting this setting to find the optimal value is encouraged."
+        )
+        style = st.slider(
+          "Style Exaggeration",
+          0.0,
+          1.0,
+          value=0.0,
+          help="High values are recommended if the style of the speech should be exaggerated compared to the uploaded audio. Higher values can lead to more instability in the generated speech. Setting this to 0.0 will greatly increase generation speed and is the default setting."
+        )
+        join_gap = st.slider(
+          "Gap Between Dialogue",
+          0,
+          1000,
+          step=10,
+          value=200,
+          help="The gap between spoken lines in milliseconds."
+        )
   
   st.header("Characters")
-  st.markdown("This is where you setup and define what characters are in your story along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
+  st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
   st.info("Adding or changing a name will clear the dialogue.")
   
-  character_table = st.data_editor(
-    pd.DataFrame([], columns=["Name", "Voice"]),
-    use_container_width=True,
-    hide_index=True, 
-    num_rows="dynamic",
-    column_config={
-      "Name": st.column_config.TextColumn(
-        "Name",
-        required=True
-      ),
-      "Voice": st.column_config.SelectboxColumn(
-        "Voice",
-        options=el_voice_names,
-        required=True
-      )
-    }    
-  )
+  if el_key:
+    character_table = st.data_editor(
+      pd.DataFrame([], columns=["Name", "Voice"]),
+      use_container_width=True,
+      hide_index=True, 
+      num_rows="dynamic",
+      column_config={
+        "Name": st.column_config.TextColumn(
+          "Name",
+          required=True
+        ),
+        "Voice": st.column_config.SelectboxColumn(
+          "Voice",
+          options=el_voice_names,
+          required=True
+        )
+      }    
+    )
+  else:
+    st.warning("Please enter an API key in the sidebar.")
   
   if not character_table.empty:
     characters = [Character(row["Name"], row["Voice"], el_voices) for _, row in character_table.iterrows()]
     character_names = [character.name for character in characters]
     
     st.header("Dialogue")
-    st.markdown("This is where you write the dialogue for your story. The dialog will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so feel free to generate the dialog to see the progress.")
+    st.markdown("This is where you write the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so feel free to generate the dialog to hear the progress.")
     
     dialogue_table = st.data_editor(
       pd.DataFrame([], columns=["Speaker", "Text"]),
@@ -136,6 +210,7 @@ if __name__ == "__main__":
         character = characters[character_index]
         dialogue.append(Dialogue(character, i, row["Text"]))
       
+      # generate audio dialogue
       generate_btn = st.button("Generate Dialogue")      
       if generate_btn:
         st.session_state["final_audio"] = False
@@ -143,36 +218,52 @@ if __name__ == "__main__":
           os.remove(file)
         audio_files = []
         for line in dialogue:
-          audio = generate_audio(line, model_id)
-          audio_file = f"./audio/line{line.line}.mp3"
-          with open(audio_file, "wb") as f:
-            f.write(audio)
-          audio_files.append(audio_file) 
+          audio_file = generate_and_save_audio(line, model_id, stability, simarlity_boost, style) 
+          audio_files.append(audio_file)
         st.session_state["audio_files"] = audio_files
       
-      if "audio_files" in st.session_state:
+      if "audio_files" in st.session_state:        
+        # check to see if one of the audio files needs to be updated
+        redos = list(filter(lambda x: x.startswith("redo_"), list(st.session_state.keys())))
+        redo_key = next((r for r in redos if st.session_state[r]), None)
+        if redo_key:
+          _, index = redo_key.split("_")
+          line = dialogue[int(index)]
+          generate_and_save_audio(line, model_id, stability, simarlity_boost, style)
+        
+        # display generated audio
         st.header("Audio Dialogue")
         for line in dialogue:
           st.markdown(f"{line.line + 1}. **{line.character.name}**: \"{line.text}\"")
           audio_file = f"./audio/line{line.line}.mp3"
-          with open(audio_file, "rb") as audio:            
-            st.audio(audio)        
+          with open(audio_file, "rb") as audio: 
+            col1, col2 = st.columns([9, 1])
+            with col1:           
+              st.audio(audio)        
+            with col2:
+              redo_key = f"redo_{line.line}"
+              st.button("Redo", key=redo_key)
       
+      # join final audio
       if "audio_files" in st.session_state:
         join_dialogue = st.button("Join Dialogue")
         
         if join_dialogue:          
           audio_files = st.session_state.audio_files
+          gap = seg.silent(join_gap)
           segments = []
           for file in audio_files:
             segments.append(seg.from_mp3(file))
           final_audio = segments[0]
           for s in segments[1:]:
-            final_audio += s
+            final_audio += gap + s
           final_audio.export("./audio/dialogue.mp3", format="mp3")
           st.session_state["final_audio"] = True
       
+      # show final audio
       if show_final_audio():
         st.header("Final Dialogue")
         st.audio("./audio/dialogue.mp3")
+        fig = generate_waveform()       
+        st.pyplot(fig)
     
