@@ -5,3 +5,5 @@ lib
 share
 pyvenv.cfg
 .env
+audio
+
