@@ -59,24 +59,3 @@ def load_saved_dialogues() -> dict:
         dialogues.append(Dialogue(character, dialogue["Line"], dialogue["Text"]))
     names[json_file.stem] = { "characters": characters, "dialogue": dialogues }
   return names
-      
-tracy_emily = Character("Tracy", "Emily", "LcfcDJNUP1GQjkzn1xUU")
-hulk_callum = Character("Hulk", "Callum", "N2lVS1w4EtoT3dr4eOWO")
-
-saved = {
-  "Hulk Smash": {
-    "characters": [
-      tracy_emily,
-      hulk_callum
-    ],
-    "dialogue": [
-      Dialogue(tracy_emily, 0, "Hello, who are you?"),
-      Dialogue(hulk_callum, 1, "Hulk smash!"),
-      Dialogue(tracy_emily, 2, "That's nice to hear. Nice to meet you hulk."),
-      Dialogue(hulk_callum, 3, "Hulk smash!"),
-      Dialogue(tracy_emily, 4, "So you say. You smash things."),
-      Dialogue(hulk_callum, 5, "Hulk smash!"),
-      Dialogue(tracy_emily, 6, "Very nice. I'm going to leave now.")
-    ]
-  }
-}

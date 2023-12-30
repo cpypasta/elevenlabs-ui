@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 from pydub import AudioSegment as seg
-from dialogues import Character, Dialogue, saved, load_saved_dialogues
+from dialogues import Character, Dialogue, load_saved_dialogues
 
 load_dotenv()
 plt.style.use('dark_background')
@@ -182,7 +182,7 @@ if __name__ == "__main__":
   with st.expander("Saved Dialogues"):
     col1, col2 = st.columns([7, 4])
     with col1:
-      save_filename = st.text_input("filename", label_visibility="collapsed", placeholder="Dialogue Name")
+      save_filename = st.text_input("filename", label_visibility="collapsed", placeholder="Dialogue Name for Saving")
     with col2:
       col21, col22 = st.columns([1, 1])
       with col21:
@@ -198,7 +198,7 @@ if __name__ == "__main__":
         saved_names, 
         index=None, 
         on_change=on_load_saved, 
-        placeholder="Select a dialogue to load",
+        placeholder="Select a dialogue",
         label_visibility="collapsed"
       )
     with col2:
@@ -214,6 +214,13 @@ if __name__ == "__main__":
           if os.path.exists(saved_path):
             os.remove(saved_path)
             st.toast("Dialogue has been deleted. You will have to click refresh to see it.", icon="👍")
+    
+    uploaded_dialogue = st.file_uploader("Upload JSON Dialogue", type=["json"])
+    if uploaded_dialogue is not None:
+      bytes_data = uploaded_dialogue.getvalue()
+      with open(f"./saves/{uploaded_dialogue.name}", "wb") as f:
+        f.write(bytes_data)
+        st.toast("Dialogue has been uploaded. You will have to click refresh to see it.", icon="👍")
   
   st.header("Characters")
   st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
@@ -306,6 +313,8 @@ if __name__ == "__main__":
     if show_json and not character_table.empty and not dialogue_table.empty:
       with st.expander("JSON", expanded=True):
         st.toast("The JSON is shown below. Please scroll down to see it.", icon="👍")
+        with open(f"./saves/{saved_dialogue}.json", "r") as f:
+          st.download_button(label="Download", data=f, file_name=f"{saved_dialogue}.json", mime="application/json")
         st.json(generate_dialogue_details(character_table, dialogue_table, el_voices))
     
     if not dialogue_table.empty:
