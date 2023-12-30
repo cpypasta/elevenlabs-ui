@@ -1,0 +1,56 @@
+{
+  "characters": [
+    {
+      "Name": "Tracy",
+      "Voice": "Emily",
+      "Voice_ID": "LcfcDJNUP1GQjkzn1xUU"
+    },
+    {
+      "Name": "Hulk",
+      "Voice": "Callum",
+      "Voice_ID": "N2lVS1w4EtoT3dr4eOWO"
+    }
+  ],
+  "dialogue": [
+    {
+      "Speaker": "Tracy",
+      "Line": 0,
+      "Text": "Hello, who are you?"
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 1,
+      "Text": "Hulk smash!"
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 2,
+      "Text": "That's nice to hear. Nice to meet you hulk."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 3,
+      "Text": "Hulk smash!"
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 4,
+      "Text": "So you say. You smash things."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 5,
+      "Text": "Hulk smash!"
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 6,
+      "Text": "Very nice. I'm going to leave now."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 7,
+      "Text": "Don't go! I'm sorry."
+    }
+  ]
+}
