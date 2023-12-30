@@ -127,15 +127,26 @@ def create_sidebar() -> SidebarData:
           value=200,
           help="The gap between spoken lines in milliseconds."
         )
-        
-  return SidebarData(
-    el_key=el_key,
-    model_id=model_id,
-    voices=el_voices,
-    voice_names=el_voice_names,
-    stability=stability,
-    simarlity_boost=simarlity_boost,
-    style=style,
-    join_gap=join_gap
-  )
+      return SidebarData(
+        el_key=el_key,
+        model_id=model_id,
+        voices=el_voices,
+        voice_names=el_voice_names,
+        stability=stability,
+        simarlity_boost=simarlity_boost,
+        style=style,
+        join_gap=join_gap
+      )
+    else:
+      return SidebarData(
+        el_key="",
+        model_id="",
+        voices=[],
+        voice_names=[],
+        stability=0.35,
+        simarlity_boost=0.80,
+        style=0.0,
+        join_gap=200
+      )   
+
   
