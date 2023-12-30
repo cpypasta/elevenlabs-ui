@@ -1,0 +1,26 @@
+{
+  "characters": [
+    {
+      "Name": "Brian",
+      "Voice": "Antoni",
+      "Voice_ID": "ErXwobaYiN019PkySvjV"
+    },
+    {
+      "Name": "Tracy",
+      "Voice": "Charlotte",
+      "Voice_ID": "XB0fDUnXU5powFXDhCwa"
+    }
+  ],
+  "dialogue": [
+    {
+      "Speaker": "Tracy",
+      "Line": 0,
+      "Text": "Knock, knock."
+    },
+    {
+      "Speaker": "Brian",
+      "Line": 1,
+      "Text": "Whose there?"
+    }
+  ]
+}
