@@ -2,7 +2,7 @@ import re, os, glob, utils
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices, generate
+from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices, generate as el_generate
 from pydub import AudioSegment as seg
 from sidebar import SidebarData
 
@@ -33,7 +33,7 @@ def generate(
   sidebar_data: SidebarData 
 ) -> bytes:
   """Generate audio from a dialogue."""
-  audio = generate(
+  audio = el_generate(
     text=text,
     model=sidebar_data.model_id,
     voice = Voice(

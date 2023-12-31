@@ -132,7 +132,7 @@ if __name__ == "__main__":
             audio_files.append(audio_file)
           except Exception as e:
             print(e)
-            st.session_state["audio_process_error"] = f"{dialogue.character.name} with the voice {dialogue.character.voice} (voice_id: {dialogue.character.voice_id})"
+            st.session_state["audio_process_error"] = f"{line.character.name} with the voice {line.character.voice} (voice_id: {line.character.voice_id})"
             break
           generate_audio_bar.progress(round((i+1) / len(dialogue), 2), text=progress_text)          
         generate_audio_bar.empty()
