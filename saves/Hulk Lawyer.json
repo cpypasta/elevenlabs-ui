@@ -1,0 +1,88 @@
+{
+  "characters": [
+    {
+      "Name": "Tracy",
+      "Voice": "Dorothy",
+      "Voice_ID": "ThT5KcBeYPX3keUQqHPh",
+      "Description": "She is a middle-aged, American woman. She is a professional lawyer."
+    },
+    {
+      "Name": "Hulk",
+      "Voice": "Callum",
+      "Voice_ID": "N2lVS1w4EtoT3dr4eOWO",
+      "Description": "He is a mutant. He was exposed to radiation and now he is a large, partial human of a creature."
+    }
+  ],
+  "dialogue": [
+    {
+      "Speaker": "Tracy",
+      "Line": 1,
+      "Text": "Hello, Hulk. I am Tracy, and I've been assigned to defend you."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 2,
+      "Text": "Hello, Tracy. Surprised to see a human actually willing to have a conversation with me."
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 3,
+      "Text": "Why did you cause so much destruction? Can you, please, help me understand?"
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 4,
+      "Text": "Loneliness and years of oppression. It's hard living in a world that fears and hates you."
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 5,
+      "Text": "There must be another way. I want to help you, and, perhaps, change the way people perceive you."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 6,
+      "Text": "Thank you. Your belief in me means a lot. With your help, maybe there is hope for a lump like myself."
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 7,
+      "Text": "You're welcome. Let's start by you telling me what you want, and why you have difficulty restraining yourself."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 8,
+      "Text": "Well, I'm not sure where to start. I suppose it is important to understand that I must smash things."
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 9,
+      "Text": "And why is that?"
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 10,
+      "Text": "Because the world is ugly, and I try to help it look that way."
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 11,
+      "Text": "And what if the world refuses? I can't say I agree that the world has to be seen as being ugly."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 12,
+      "Text": "Then, perhaps, you aren't looking hard enough."
+    },
+    {
+      "Speaker": "Tracy",
+      "Line": 13,
+      "Text": "Or, perhaps, you are wrong. You may just be looking at the world unfairly. I need you to have an open mind if I'm going to help you."
+    },
+    {
+      "Speaker": "Hulk",
+      "Line": 14,
+      "Text": "Well, I'm beginning to think the best way for you to help me, is for me to smash that smirk right off your face."
+    }
+  ]
+}

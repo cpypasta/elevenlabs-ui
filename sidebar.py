@@ -2,11 +2,12 @@ import os, el_audio, utils
 import streamlit as st
 from elevenlabs import Voice, set_api_key
 from dataclasses import dataclass
+from utils import log
+from openai import OpenAI
 
 @dataclass
 class SidebarData:
   el_key: str
-  openai_api_key: str
   model_id: str
   voices: list[Voice]
   voice_names: list[str]
@@ -14,6 +15,10 @@ class SidebarData:
   simarlity_boost: float
   style: float
   join_gap: int  
+  openai_api_key: str
+  openai_model: str
+  openai_temp: float
+  openai_max_tokens: int
 
 def get_voice_by_name(name: str, voices: list[Voice]) -> Voice:
   """Get a voice by the voice name."""
@@ -52,15 +57,31 @@ def voice_names_with_filter(
       voice_names.append(f"{v.name} ({v.category})" if v.category == "cloned" else v.name)
   return voice_names
 
+@st.cache_data
+def get_models(openai_api_key: str) -> list[str]:
+  """Get a list of OpenAI models."""
+  client = OpenAI(api_key=openai_api_key)
+  response = client.models.list()
+  model_ids = [m.id for m in response.data]
+  return sorted(model_ids)
+
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
   with st.sidebar:
-    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")
-    openai_api_key = st.text_input("OpenAI API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
+    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")    
     
     if el_key:
       set_api_key(el_key)          
           
+      with st.expander("OpenAI Options"):
+        openai_api_key = st.text_input("API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
+        if openai_api_key:
+          openai_models = get_models(openai_api_key)
+          gpt4_index = openai_models.index("gpt-3.5-turbo")
+          openai_model = st.selectbox("Model", openai_models, index=gpt4_index)
+          openai_temp = st.slider("Temperature", 0.0, 1.5, 1.3, 0.1,  help="The higher the temperature, the more creative the text.")
+          openai_max_tokens = st.slider("Max Tokens", 1024, 10000, 3072, 1024, help="Check the official documentation on maximum token size for the selected model.")
+      
       with st.expander("Dialogue Options"):  
         models = el_audio.get_models()
         model_ids = [m.model_id for m in models]
@@ -133,26 +154,32 @@ def create_sidebar() -> SidebarData:
                 
       return SidebarData(
         el_key=el_key,
-        openai_api_key=openai_api_key,
         model_id=model_id,
         voices=el_voices,
         voice_names=el_voice_names,
         stability=stability,
         simarlity_boost=simarlity_boost,
         style=style,
-        join_gap=join_gap
+        join_gap=join_gap,
+        openai_api_key=openai_api_key,
+        openai_model=openai_model,
+        openai_temp=openai_temp,
+        openai_max_tokens=openai_max_tokens
       )
     else:
       return SidebarData(
         el_key="",
-        openai_api_key="",
         model_id="",
         voices=[],
         voice_names=[],
         stability=0.35,
         simarlity_boost=0.80,
         style=0.0,
-        join_gap=200
+        join_gap=200,
+        openai_api_key="",
+        openai_model="",
+        openai_temp=1.5,
+        openai_max_tokens=4096
       )   
 
   

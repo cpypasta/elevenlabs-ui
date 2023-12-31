@@ -16,43 +16,28 @@
   "dialogue": [
     {
       "Speaker": "Tracy",
+      "Line": 0,
+      "Text": "Hulk, we need to talk."
+    },
+    {
+      "Speaker": "Hulk",
       "Line": 1,
-      "Text": "Hello, who are you?"
+      "Text": "What is it, Tracy?"
     },
     {
-      "Speaker": "Hulk",
+      "Speaker": "Tracy",
       "Line": 2,
-      "Text": "Hulk smash!"
+      "Text": "You caused a lot of damage with that gas leak. People's lives and homes were destroyed, and they deserve justice."
     },
     {
-      "Speaker": "Tracy",
+      "Speaker": "Hulk",
       "Line": 3,
-      "Text": "That's nice to hear. Nice to meet you hulk."
+      "Text": "Me mad. Me just trying to survive. Didn't mean to hurt anyone."
     },
     {
-      "Speaker": "Hulk",
+      "Speaker": "Tracy",
       "Line": 4,
-      "Text": "Hulk smash!"
-    },
-    {
-      "Speaker": "Tracy",
-      "Line": 5,
-      "Text": "So you say. You smash things."
-    },
-    {
-      "Speaker": "Hulk",
-      "Line": 6,
-      "Text": "Hulk smash!"
-    },
-    {
-      "Speaker": "Tracy",
-      "Line": 7,
-      "Text": "Very nice. I'm going to leave now."
-    },
-    {
-      "Speaker": "Hulk",
-      "Line": 8,
-      "Text": "Don't go! I'm sorry."
+      "Text": "Survival is not an excuse for causing harm to innocent people. You need to take responsibility for your actions and compensate the victims."
     }
   ]
 }

@@ -6,4 +6,5 @@ share
 pyvenv.cfg
 .env
 audio
-
+.DS_Store
+export

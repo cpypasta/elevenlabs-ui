@@ -1,10 +1,11 @@
-import re, os, glob, utils
+import os, glob, utils
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices, generate as el_generate
 from pydub import AudioSegment as seg
 from sidebar import SidebarData
+from utils import log
 
 @st.cache_data
 def get_voices() -> list[Voice]:
@@ -74,15 +75,20 @@ def generate_waveform(audio_path: str) -> plt.Figure:
   fig.set_figheight(2)
   return fig
 
-def join_audio(audio_files: list[str], join_gap: int) -> None:
-  """Join audio files together with a gap in between."""
+def join_audio(line_indices: list[int], join_gap: int) -> None:
+  """Join audio files found in the audio folder together with a gap in between."""
+  audio_files = [f"./audio/line{i}.mp3" for i in line_indices]
+  log(f"joining {len(audio_files)} audio files: {line_indices}")
+  
   gap = seg.silent(join_gap)
   segments: list[seg] = []
   progress_text = "Joining audio..."
   joining_audio_bar = st.progress(0, text=progress_text)          
   for i, file in enumerate(audio_files):
-    segments.append(seg.from_mp3(file))
+    if os.path.exists(file):
+      segments.append(seg.from_mp3(file))
     joining_audio_bar.progress(round((i+1) / len(audio_files), 2), text=progress_text)
+    
   final_audio = segments[0]
   for i, s in enumerate(segments[1:]):
     final_audio += gap + s

@@ -1,8 +1,9 @@
-import json
+import json, os
 import pandas as pd
 from pathlib import Path
 from elevenlabs import Voice
 from el_audio import get_voice_id
+from utils import log
 
 class Character:
   def __init__(self, name: str, voice: str, voice_id: str, description: str = "") -> None:
@@ -102,7 +103,8 @@ def save_dialogue(
   save_filename: str
 ) -> None:
   """Save a dialogue to a JSON file."""""
-  dialogue_details = generate_dialogue_details(characters, dialogue, voices)      
+  dialogue_details = generate_dialogue_details(characters, dialogue, voices) 
+  os.makedirs(os.path.dirname(save_filename), exist_ok=True)     
   with open(save_filename, "w") as f:
     json.dump(dialogue_details, f, indent=2)  
 
@@ -111,7 +113,12 @@ def character_change(character_changes: dict) -> bool:
   edited = len(character_changes["edited_rows"].keys()) > 0
   added = any(["Name" in c for c in character_changes["added_rows"]])
   deleted_rows = len(character_changes["deleted_rows"]) > 0
-  return edited or added or deleted_rows
+  is_change = edited or added or deleted_rows
+  if is_change:
+    log("character change")
+    if added:
+      log(f"\tadded characters: {character_changes['added_rows']}")
+  return is_change
 
 def added_or_removed_characters(character_changes: dict) -> bool:
   """Check if characters were added or removed from the character table."""
@@ -125,3 +132,18 @@ def added_or_removed_characters(character_changes: dict) -> bool:
         break # only need to find one          
   removed_characters = "deleted_rows" in character_changes and len(character_changes["deleted_rows"]) > 0 
   return edited_characters or removed_characters 
+
+def characters_match(characters: pd.DataFrame, dialogue: pd.DataFrame) -> bool:
+  """
+  Check if the characters in the character table match the characters in the dialogue no matter order.
+  It is okay if there are more characters in characters than dialogue.
+  """
+  characters_in_dialogue = list(dialogue["Speaker"])
+  characters_in_character_table = list(characters["Name"])
+  missing = False
+  for c in characters_in_dialogue:
+    if c not in characters_in_character_table:
+      log(f"character {c} is missing from character table")
+      missing = True
+      break # only need to find one
+  return not missing

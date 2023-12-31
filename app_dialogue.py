@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
-from dialogues import Character, Dialogue, get_voice_id, save_dialogue, character_change
+from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match
 from sidebar import create_sidebar
 from saved_dialogues import create_saved_dialogues, get_selected_characters, get_selected_dialogue
 from generate import create_dialogue_generation
+from utils import log
 
 load_dotenv()
 plt.style.use('dark_background')
@@ -26,7 +27,7 @@ if __name__ == "__main__":
     st.header("Characters")
     st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
     with st.expander("**WARNING**: changing characters can clear the dialogue"):
-      st.info("Adding or removing characters and modifying names will clear the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
+      st.info("Adding or removing characters and modifying names will clear or reset the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
     
     if saves.selected_save_name:
       character_data = [c.to_dict() for c in get_selected_characters(saves)]
@@ -57,6 +58,8 @@ if __name__ == "__main__":
         )
       }    
     )
+    
+    # log(f"Character changes: {st.session_state['character_table']}")
   else:
     character_table = pd.DataFrame()
     st.warning("Please enter an API key in the sidebar.")
@@ -77,22 +80,28 @@ if __name__ == "__main__":
     st.header("Dialogue")
     st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click generate as often as you would like.")
     
-    generated_dialogue = create_dialogue_generation(sidebar.openai_api_key, characters)
-    has_character_changed = character_change(st.session_state["character_table"])
-    
-    if has_character_changed:
-      if "generated_dialogue" in st.session_state:
+    generated_dialogue = create_dialogue_generation(sidebar, characters)
+
+    if "generated_dialogue" in st.session_state:
+      characters_matched = characters_match(character_table, st.session_state["generated_dialogue"])
+      if not characters_matched:
+        log("characters do not match between generated dialogue and current characters")
+        st.toast("It appears that the speakers in the dialogue do not match the characters you have defined.", icon="👎")
         del st.session_state["generated_dialogue"]
-    
-    if generated_dialogue is not None:      
+        
+    if generated_dialogue is not None: 
+      log("use just created generated dialogue")     
       st.session_state["generated_dialogue"] = generated_dialogue
       dialogue_df = generated_dialogue
     elif "generated_dialogue" in st.session_state:
+      log("using cached generated dialogue") 
       dialogue_df = st.session_state["generated_dialogue"]
     elif saves.selected_save_name:
+      log("using loaded dialogue") 
       dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
       dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
     else:
+      log("creating new empty dialogue") 
       dialogue_df = pd.DataFrame([], columns=["Speaker", "Text"])
     
     dialogue_table = st.data_editor(
@@ -116,6 +125,8 @@ if __name__ == "__main__":
       }
     )    
     
+    # log(f"Dialogue changes: {st.session_state['dialogue_table']}")
+    
     # save dialogue to file
     if saves.save_dialogue and saves.save_dialogue_name:
       save_dialogue(character_table, dialogue_table, sidebar.voices, f"./saves/{saves.save_dialogue_name}.json")
@@ -131,12 +142,12 @@ if __name__ == "__main__":
         try:
           character_index = character_names.index(row["Speaker"])
           character = characters[character_index]
-          dialogue.append(Dialogue(character, i, row["Text"]))
+          dialogue.append(Dialogue(character, i+1, row["Text"]))
         except:
           print(f"Error: {row['Speaker']} is not a valid character.")
           pass        
       
-      # generate audio dialogue
+      # generate audio dialogue files
       generate_btn = st.button("Generate Audio Dialogue")      
       if generate_btn:
         st.session_state["final_audio"] = False
@@ -161,48 +172,51 @@ if __name__ == "__main__":
           st.error(f"""An error occured while generating the audio. Please check your API key.
           Error occurred while processing: {st.session_state.audio_process_error}
           """)
+          if "audio_files" in st.session_state:
+            del st.session_state["audio_files"]
         else:
           st.session_state["audio_files"] = audio_files
       
       if "audio_files" in st.session_state:        
         # display generated audio
         st.header("Audio Dialogue")
-        # check to see if one of the audio files needs to be updated
-        redos = list(filter(lambda x: x.startswith("redo_"), list(st.session_state.keys())))
-        redo_key = next((r for r in redos if st.session_state[r]), None)
-        if redo_key:
-          _, index = redo_key.split("_")
-          line = dialogue[int(index)]
-          with st.spinner("Generating audio..."):
-            el_audio.generate_and_save(line, sidebar) 
+        st.markdown("The dialogue text has now been coverted into audio. You can listen to the audio by clicking the play button. If you want to regenerate the audio, you can click the `Generate Audio Dialogue` button above. If you are happy with the audio, you can join the audio files together by clicking the `Join Dialogue` button below. You can also click the `Redo` button to regenerate the audio for a specific line.")
+        with st.expander("**WARNING**: deleting dialogue lines requires audio regeneration"):
+          st.info("If you delete dialogue lines, you will have to regenerate the audio by clicking the `Generate Audio Dialogue` button above. Adding or modifying dialogue lines will not require regeneration of all lines, but you will likely need to click the `Redo` button for the affected lines.")
                     
-        for line in dialogue:
-          st.markdown(f"{line.line + 1}. **{line.character.name}**: \"{line.text}\"")
-          audio_file = f"./audio/line{line.line}.mp3"
-          if os.path.exists(audio_file):
-            with open(audio_file, "rb") as audio: 
-              col1, col2 = st.columns([9, 1])
-              with col1:           
-                st.audio(audio)        
-              with col2:
-                redo_key = f"redo_{line.line}"
-                st.button("Redo", key=redo_key)
-          else:
-            st.markdown("Audio file not found. Please generate the audio again.")
+        for i, line in enumerate(dialogue):
+          st.markdown(f"{i + 1}. **{line.character.name}**: \"{line.text}\"")
+          
+          col1, col2 = st.columns([9, 1])
+          with col1:     
+            audio_file = f"./audio/line{line.line}.mp3"
+            if os.path.exists(audio_file):     
+              with open(audio_file, "rb") as audio:  
+                st.audio(audio)
+            else:
+              st.markdown("Audio file not found. Please click the `Redo` button.")       
+          with col2:
+            redo_key = f"redo_{line.line}"
+            redo_btn = st.button("Redo", key=redo_key)
+          if redo_btn:
+            with st.spinner("Generating audio..."):
+              log(f"regenerating audio for {redo_key} for {line.character.name} with {line.character.voice}")
+              el_audio.generate_and_save(line.text, line.character.voice_id, line.line, sidebar)
+            st.rerun()                   
       
       # join final audio
       if "audio_files" in st.session_state:
         join_dialogue = st.button("Join Dialogue")
-        
+        line_indices = [d.line for d in dialogue]
         if join_dialogue:          
-          audio_files = st.session_state.audio_files
-          el_audio.join_audio(audio_files, sidebar.join_gap)
+          el_audio.join_audio(line_indices, sidebar.join_gap)
           st.session_state["final_audio"] = True
       
       # show final audio
       if show_final_audio():
         dialogue_path = "./audio/dialogue.mp3"
         st.header("Final Dialogue")
+        st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")
         st.audio(dialogue_path)
         fig = el_audio.generate_waveform(dialogue_path)       
         st.pyplot(fig)
