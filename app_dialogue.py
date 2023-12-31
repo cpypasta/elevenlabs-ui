@@ -24,7 +24,7 @@ if __name__ == "__main__":
     saves = create_saved_dialogues()
     st.header("Characters")
     st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
-    with st.expander("**WARNING**: changing characters can clear the dialogue."):
+    with st.expander("**WARNING**: changing characters can clear the dialogue"):
       st.info("Adding or removing characters and modifying names will clear the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
     
     if saves.selected_save_name:
