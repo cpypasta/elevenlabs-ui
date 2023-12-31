@@ -1,11 +1,12 @@
-import el_audio
+import el_audio, os
 import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
-from dialogues import Character, Dialogue, get_voice_id, generate_dialogue_details, save_dialogue, added_or_removed_characters
+from dialogues import Character, Dialogue, get_voice_id, save_dialogue, character_change
 from sidebar import create_sidebar
 from saved_dialogues import create_saved_dialogues, get_selected_characters, get_selected_dialogue
+from generate import create_dialogue_generation
 
 load_dotenv()
 plt.style.use('dark_background')
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     else:
       character_data = []    
     character_table = st.data_editor(
-      pd.DataFrame(character_data, columns=["Name", "Voice"]),
+      pd.DataFrame(character_data, columns=["Name", "Voice", "Description"]),
       use_container_width=True,
         hide_index=True,
       num_rows="dynamic",
@@ -40,12 +41,19 @@ if __name__ == "__main__":
       column_config={
         "Name": st.column_config.TextColumn(
           "Name",
-          required=True
+          required=True,
+          width="small"
         ),
         "Voice": st.column_config.SelectboxColumn(
           "Voice",
           options=sidebar.voice_names,
-          required=True
+          required=True,
+          width="small"
+        ),
+        "Description": st.column_config.TextColumn(
+          "Description",
+          required=False,
+          width="large"
         )
       }    
     )
@@ -57,19 +65,31 @@ if __name__ == "__main__":
   if characters_available:
     characters: list[Character] = []
     for _, row in character_table.iterrows():
-      characters.append(Character(
+      c = Character(
         row["Name"], 
         row["Voice"], 
-        get_voice_id(row["Voice"], sidebar.voices)
-      ))
+        get_voice_id(row["Voice"], sidebar.voices),
+        description=row["Description"]
+      )
+      characters.append(c)
     character_names = [character.name for character in characters]
     
     st.header("Dialogue")
-    st.markdown("This is where you write the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click generate as often as you need.")
+    st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click generate as often as you would like.")
     
-    character_changes = st.session_state["character_table"]
+    generated_dialogue = create_dialogue_generation(sidebar.openai_api_key, characters)
+    has_character_changed = character_change(st.session_state["character_table"])
     
-    if saves.selected_save_name:
+    if has_character_changed:
+      if "generated_dialogue" in st.session_state:
+        del st.session_state["generated_dialogue"]
+    
+    if generated_dialogue is not None:      
+      st.session_state["generated_dialogue"] = generated_dialogue
+      dialogue_df = generated_dialogue
+    elif "generated_dialogue" in st.session_state:
+      dialogue_df = st.session_state["generated_dialogue"]
+    elif saves.selected_save_name:
       dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
       dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
     else:
@@ -159,13 +179,16 @@ if __name__ == "__main__":
         for line in dialogue:
           st.markdown(f"{line.line + 1}. **{line.character.name}**: \"{line.text}\"")
           audio_file = f"./audio/line{line.line}.mp3"
-          with open(audio_file, "rb") as audio: 
-            col1, col2 = st.columns([9, 1])
-            with col1:           
-              st.audio(audio)        
-            with col2:
-              redo_key = f"redo_{line.line}"
-              st.button("Redo", key=redo_key)
+          if os.path.exists(audio_file):
+            with open(audio_file, "rb") as audio: 
+              col1, col2 = st.columns([9, 1])
+              with col1:           
+                st.audio(audio)        
+              with col2:
+                redo_key = f"redo_{line.line}"
+                st.button("Redo", key=redo_key)
+          else:
+            st.markdown("Audio file not found. Please generate the audio again.")
       
       # join final audio
       if "audio_files" in st.session_state:

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class SidebarData:
   el_key: str
+  openai_api_key: str
   model_id: str
   voices: list[Voice]
   voice_names: list[str]
@@ -54,7 +55,9 @@ def voice_names_with_filter(
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
   with st.sidebar:
-    el_key = st.text_input("API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")
+    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")
+    openai_api_key = st.text_input("OpenAI API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
+    
     if el_key:
       set_api_key(el_key)          
           
@@ -130,6 +133,7 @@ def create_sidebar() -> SidebarData:
                 
       return SidebarData(
         el_key=el_key,
+        openai_api_key=openai_api_key,
         model_id=model_id,
         voices=el_voices,
         voice_names=el_voice_names,
@@ -141,6 +145,7 @@ def create_sidebar() -> SidebarData:
     else:
       return SidebarData(
         el_key="",
+        openai_api_key="",
         model_id="",
         voices=[],
         voice_names=[],

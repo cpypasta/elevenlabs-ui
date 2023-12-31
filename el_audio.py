@@ -17,7 +17,7 @@ def get_voice_id(voice_name: str, voices: list[Voice]) -> str:
   """Get the voice ID from the voice name."""
   voice_name = utils.extract_name(voice_name)
   voice_index = next((i for i, v in enumerate(voices) if v.name == voice_name), None)
-  if voice_index:
+  if voice_index is not None:
     return voices[voice_index].voice_id
   else:
     return ""

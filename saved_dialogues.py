@@ -17,6 +17,8 @@ def on_load_saved() -> None:
     del st.session_state["audio_files"]
   if "final_audio" in st.session_state:
     del st.session_state["final_audio"]
+  if "generated_dialogue" in st.session_state:
+    del st.session_state["generated_dialogue"]
 
 def get_selected_characters(save_dialogue_data: SavedDialogueData) -> list[Character]:
   """Get the characters from the selected saved dialogue."""

@@ -5,16 +5,18 @@ from elevenlabs import Voice
 from el_audio import get_voice_id
 
 class Character:
-  def __init__(self, name: str, voice: str, voice_id: str) -> None:
+  def __init__(self, name: str, voice: str, voice_id: str, description: str = "") -> None:
     self.name = name
     self.voice = voice
     self.voice_id = voice_id
+    self.description = description
   
   def to_dict(self) -> dict:
     return {
       "Name": self.name,
       "Voice": self.voice,
-      "Voice_ID": self.voice_id
+      "Voice_ID": self.voice_id,
+      "Description": self.description
     }
   
   def __str__(self):
@@ -54,7 +56,7 @@ def generate_dialogue_details(
   """Generate dialogue details in a common format suitiable for JSON."""
   characters: list[Character] = []
   for i, c in characters_df.iterrows():
-    characters.append(Character(c["Name"], c["Voice"], get_voice_id(c["Voice"], voices)))
+    characters.append(Character(c["Name"], c["Voice"], get_voice_id(c["Voice"], voices), description=c["Description"]))
   dialogue: list[Dialogue] = []
   for i, d in dialogue_df.iterrows():
     character = next((c for c in characters if c.name == d["Speaker"]), None)
@@ -75,7 +77,12 @@ def load_saved_dialogues() -> dict:
     with open(json_file, "r") as f:
       data = json.load(f)
       for character in data["characters"]:
-        characters.append(Character(character["Name"], character["Voice"], character["Voice_ID"]))
+        characters.append(Character(
+          character["Name"], 
+          character["Voice"], 
+          character["Voice_ID"], 
+          description=character["Description"] if "Description" in character else ""
+        ))
       for dialogue in data["dialogue"]:
         character = next((c for c in characters if c.name == dialogue["Speaker"]), None)
         dialogues.append(Dialogue(character, dialogue["Line"], dialogue["Text"]))
@@ -98,13 +105,19 @@ def save_dialogue(
   dialogue_details = generate_dialogue_details(characters, dialogue, voices)      
   with open(save_filename, "w") as f:
     json.dump(dialogue_details, f, indent=2)  
-    
+
+def character_change(character_changes: dict) -> bool:
+  """Check if characters where changed."""
+  edited = len(character_changes["edited_rows"].keys()) > 0
+  added = any(["Name" in c for c in character_changes["added_rows"]])
+  deleted_rows = len(character_changes["deleted_rows"]) > 0
+  return edited or added or deleted_rows
+
 def added_or_removed_characters(character_changes: dict) -> bool:
   """Check if characters were added or removed from the character table."""
   edited_characters = False
   if "edited_rows" in character_changes:
     edited_rows = character_changes["edited_rows"]
-    edited_cnt = 0
     for r_key in edited_rows.keys():
       change = edited_rows[r_key]
       if "Name" in change.keys():

@@ -3,12 +3,14 @@
     {
       "Name": "Woman",
       "Voice": "Dorothy",
-      "Voice_ID": "ThT5KcBeYPX3keUQqHPh"
+      "Voice_ID": "ThT5KcBeYPX3keUQqHPh",
+      "Description": "She is a wife and the owner of a small dog. She is very attractive and seductive."
     },
     {
       "Name": "Ace",
       "Voice": "Clyde",
-      "Voice_ID": "2EiwWnXFnvU5JabPnv8n"
+      "Voice_ID": "2EiwWnXFnvU5JabPnv8n",
+      "Description": "He is a UPS delivery person. He is charismatic, eccentric, and unusual."
     }
   ],
   "dialogue": [
@@ -19,32 +21,32 @@
     },
     {
       "Speaker": "Ace",
-      "Line": 2,
+      "Line": 1,
       "Text": "Well, the reward would be good, and there was some damage to my..."
     },
     {
       "Speaker": "Woman",
-      "Line": 3,
+      "Line": 2,
       "Text": "Would you like me to take your pants off instead?"
     },
     {
       "Speaker": "Ace",
-      "Line": 4,
+      "Line": 3,
       "Text": "Ummm, sure."
     },
     {
       "Speaker": "Woman",
-      "Line": 5,
+      "Line": 4,
       "Text": "It takes a big man to stand up to my husband. He's already put two of my lovers in the hospital."
     },
     {
       "Speaker": "Ace",
-      "Line": 6,
+      "Line": 5,
       "Text": "How did he find out? Does he have you followed."
     },
     {
       "Speaker": "Woman",
-      "Line": 7,
+      "Line": 6,
       "Text": "No, I tell him."
     }
   ]
