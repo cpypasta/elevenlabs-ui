@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
-from dialogues import Character, Dialogue, get_voice_id, generate_dialogue_details, save_dialogue
+from dialogues import Character, Dialogue, get_voice_id, generate_dialogue_details, save_dialogue, added_or_removed_characters
 from sidebar import create_sidebar
 from saved_dialogues import create_saved_dialogues, get_selected_characters, get_selected_dialogue
 
@@ -19,13 +19,14 @@ if __name__ == "__main__":
   st.title("🎧 ElevenLabs Dialogue")
   
   sidebar = create_sidebar()
-  saves = create_saved_dialogues()
-
-  st.header("Characters")
-  st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
-  st.info("Modifying names will clear the dialogue. You can freely change the voice however.")
     
   if sidebar.el_key:
+    saves = create_saved_dialogues()
+    st.header("Characters")
+    st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the sidebar if you want to hear what a voice sounds like.")
+    with st.expander("**WARNING**: changing characters can clear the dialogue."):
+      st.info("Adding or removing characters and modifying names will clear the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
+    
     if saves.selected_save_name:
       character_data = [c.to_dict() for c in get_selected_characters(saves)]
     else:
@@ -52,30 +53,25 @@ if __name__ == "__main__":
     character_table = pd.DataFrame()
     st.warning("Please enter an API key in the sidebar.")
   
-  if not character_table.empty:
-    characters = [Character(row["Name"], row["Voice"], get_voice_id(row["Voice"], sidebar.voices)) for _, row in character_table.iterrows()]
+  characters_available = not character_table.empty
+  if characters_available:
+    characters: list[Character] = []
+    for _, row in character_table.iterrows():
+      characters.append(Character(
+        row["Name"], 
+        row["Voice"], 
+        get_voice_id(row["Voice"], sidebar.voices)
+      ))
     character_names = [character.name for character in characters]
     
     st.header("Dialogue")
-    st.markdown("This is where you write the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so feel free to generate whenever you want to hear your progress.")
+    st.markdown("This is where you write the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click generate as often as you need.")
+    
+    character_changes = st.session_state["character_table"]
     
     if saves.selected_save_name:
-      characters_changes = st.session_state["character_table"]
-      edited_characters = False
-      if "edited_rows" in characters_changes:
-        edited_rows = characters_changes["edited_rows"]
-        edited_cnt = 0
-        for r_key in edited_rows.keys():
-          change = edited_rows[r_key]
-          if "Name" in change.keys():
-            edited_characters = True
-            break
-      removed_characters = "deleted_rows" in characters_changes and len(characters_changes["deleted_rows"]) > 0
-      if edited_characters or removed_characters:
-        dialogue_df = pd.DataFrame([], columns=["Speaker", "Text"])
-      else:
-        dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
-        dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
+      dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
+      dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
     else:
       dialogue_df = pd.DataFrame([], columns=["Speaker", "Text"])
     
@@ -91,7 +87,7 @@ if __name__ == "__main__":
           options=character_names,
           required=True,
           width="small"
-        ),
+        ),   
         "Text": st.column_config.TextColumn(
           "Text",
           required=True,
@@ -101,19 +97,14 @@ if __name__ == "__main__":
     )    
     
     # save dialogue to file
-    if saves.selected_save_name and saves.save_dialogue_name:
-      if character_table.empty or dialogue_table.empty:
-        st.toast("Please enter characters and dialogue before saving.", icon="🚨")
-      else:
-        save_dialogue(character_table, dialogue_table, sidebar.voices, saves.save_dialogue_name)
-        st.toast("Dialogue has been saved. You will have to click refresh to see it.", icon="👍")
-    if saves.show_json and not character_table.empty and not dialogue_table.empty:
-      with st.expander("JSON", expanded=True):
-        st.toast("The JSON is shown below. Please scroll down to see it.", icon="👍")
-        with open(f"./saves/{saves.selected_save_name}.json", "r") as f:
-          st.download_button(label="Download", data=f, file_name=f"{saves.selected_save_name}.json", mime="application/json")
-        st.json(generate_dialogue_details(character_table, dialogue_table, sidebar.voices))
+    if saves.save_dialogue and saves.save_dialogue_name:
+      save_dialogue(character_table, dialogue_table, sidebar.voices, f"./saves/{saves.save_dialogue_name}.json")
+      st.toast("Dialogue has been saved. You will have to click refresh to see it.", icon="👍")
+    if saves.prepare_json:
+      save_dialogue(character_table, dialogue_table, sidebar.voices, "./export/dialogue.json")
+      st.rerun()
     
+    # extract Dialogues from the dialogue table
     if not dialogue_table.empty:
       dialogue: list[Dialogue] = []
       for i, row in dialogue_table.iterrows():

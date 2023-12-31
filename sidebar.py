@@ -57,37 +57,6 @@ def create_sidebar() -> SidebarData:
     el_key = st.text_input("API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")
     if el_key:
       set_api_key(el_key)          
-    
-      with st.expander("Voice Explorer"):
-        el_voices = el_audio.get_voices()
-        el_voice_names = [f"{voice.name}{' (cloned)' if voice.category == 'cloned' else ''}" for voice in el_voices]
-        el_voice_accents = set([voice.labels["accent"] for voice in el_voices if "accent" in voice.labels])
-        el_voice_ages = set([voice.labels["age"] for voice in el_voices if "age" in voice.labels])
-        el_voice_genders = set([voice.labels["gender"] for voice in el_voices if "gender" in voice.labels])
-        el_voice_accents = sorted(el_voice_accents, key=lambda x: x.lower())
-        
-        el_voice_cloned = st.toggle("Cloned Voices Only", value=False)
-        el_voice_gender = st.selectbox("Gender Filter", el_voice_genders, index=None)
-        el_voice_age = st.selectbox("Age Filter", el_voice_ages, index=None)
-        el_voice_accent = st.selectbox("Accent Filter", el_voice_accents, index=None)
-        
-        speaker_voice_names = voice_names_with_filter(
-          el_voices, 
-          el_voice_gender, 
-          el_voice_age, 
-          el_voice_accent,
-          el_voice_cloned
-        )
-        el_voice = st.selectbox("Speaker", speaker_voice_names)
-        if el_voice:
-          el_voice_details = get_voice_by_name(el_voice, el_voices)
-          el_voice_id = el_voice_details.voice_id
-          
-          # voice sample        
-          if el_voice_details.preview_url:
-            st.audio(el_voice_details.preview_url, format="audio/mp3")
-        
-          st.markdown(f"_Voice ID: {el_voice_id}_") 
           
       with st.expander("Dialogue Options"):  
         models = el_audio.get_models()
@@ -127,6 +96,38 @@ def create_sidebar() -> SidebarData:
           value=200,
           help="The gap between spoken lines in milliseconds."
         )
+      
+      with st.expander("Voice Explorer"):
+        el_voices = el_audio.get_voices()
+        el_voice_names = [f"{voice.name}{' (cloned)' if voice.category == 'cloned' else ''}" for voice in el_voices]
+        el_voice_accents = set([voice.labels["accent"] for voice in el_voices if "accent" in voice.labels])
+        el_voice_ages = set([voice.labels["age"] for voice in el_voices if "age" in voice.labels])
+        el_voice_genders = set([voice.labels["gender"] for voice in el_voices if "gender" in voice.labels])
+        el_voice_accents = sorted(el_voice_accents, key=lambda x: x.lower())
+        
+        el_voice_cloned = st.toggle("Cloned Voices Only", value=False)
+        el_voice_gender = st.selectbox("Gender Filter", el_voice_genders, index=None)
+        el_voice_age = st.selectbox("Age Filter", el_voice_ages, index=None)
+        el_voice_accent = st.selectbox("Accent Filter", el_voice_accents, index=None)
+        
+        speaker_voice_names = voice_names_with_filter(
+          el_voices, 
+          el_voice_gender, 
+          el_voice_age, 
+          el_voice_accent,
+          el_voice_cloned
+        )
+        el_voice = st.selectbox("Speaker", speaker_voice_names)
+        if el_voice:
+          el_voice_details = get_voice_by_name(el_voice, el_voices)
+          el_voice_id = el_voice_details.voice_id
+          
+          # voice sample        
+          if el_voice_details.preview_url:
+            st.audio(el_voice_details.preview_url, format="audio/mp3")
+        
+          st.markdown(f"_Voice ID: {el_voice_id}_") 
+                
       return SidebarData(
         el_key=el_key,
         model_id=model_id,

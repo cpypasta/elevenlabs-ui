@@ -96,5 +96,19 @@ def save_dialogue(
 ) -> None:
   """Save a dialogue to a JSON file."""""
   dialogue_details = generate_dialogue_details(characters, dialogue, voices)      
-  with open(f"./saves/{save_filename}.json", "w") as f:
+  with open(save_filename, "w") as f:
     json.dump(dialogue_details, f, indent=2)  
+    
+def added_or_removed_characters(character_changes: dict) -> bool:
+  """Check if characters were added or removed from the character table."""
+  edited_characters = False
+  if "edited_rows" in character_changes:
+    edited_rows = character_changes["edited_rows"]
+    edited_cnt = 0
+    for r_key in edited_rows.keys():
+      change = edited_rows[r_key]
+      if "Name" in change.keys():
+        edited_characters = True
+        break # only need to find one          
+  removed_characters = "deleted_rows" in character_changes and len(character_changes["deleted_rows"]) > 0 
+  return edited_characters or removed_characters 
