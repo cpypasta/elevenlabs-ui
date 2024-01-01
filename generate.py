@@ -100,8 +100,8 @@ def create_continue_dialogue(sidebar: SidebarData, characters: list[Character], 
   with st.spinner("Generating dialogue..."):
     input_prompt = generate_continue_dialogue_input_prompt(
       characters, 
-      st.session_state["number_of_lines"], 
-      st.session_state["plot"], 
+      st.session_state["number_of_lines"] if "number_of_lines" in st.session_state else 10, 
+      st.session_state["plot"] if "plot" in st.session_state else "", 
       dialogue
     )
     system_prompt = load_continue_dialogue_system_prompt()

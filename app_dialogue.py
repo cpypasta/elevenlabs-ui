@@ -21,7 +21,7 @@ if __name__ == "__main__":
   
   if "session_id" not in st.session_state:
     st.session_state["session_id"] = str(uuid.uuid4())  
-  log("session id: " + st.session_state.session_id)
+    log("session id: " + st.session_state.session_id)
   
   st.title("🎧 ElevenLabs Dialogue")
   
@@ -153,8 +153,8 @@ if __name__ == "__main__":
           pass        
       
       # continue generated dialogue
-      if sidebar.openai_api_key and "generated_dialogue" in st.session_state:
-        continue_btn = st.button("Cotinue Dialogue", use_container_width=True)
+      if sidebar.openai_api_key and not dialogue_table.empty:
+        continue_btn = st.button("Cotinue Dialogue", use_container_width=True, help="This uses options set in `Dialogue Generation` to continue the dialogue.")
         if continue_btn:
           generated_dialogue = create_continue_dialogue(sidebar, characters, dialogue)     
           if generated_dialogue is not None: 
