@@ -98,9 +98,9 @@ def create_saved_dialogues():
               use_container_width=True,
               disabled=not download_dialogue_name
             )
-            if dialogue_downloaded:
-              os.remove(f"./session/{st.session_state.session_id}/export/dialogue.json")
-              st.rerun()    
+          if dialogue_downloaded:
+            os.remove(f"./session/{st.session_state.session_id}/export/dialogue.json")
+            st.rerun()    
         
   return SavedDialogueData(saved_dialogues, selected_save_name, save_dialogue_name, save_dialog, prepare_json)
 
