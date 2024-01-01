@@ -100,7 +100,6 @@ def create_saved_dialogues():
             )
           if dialogue_downloaded:
             os.remove(f"./session/{st.session_state.session_id}/export/dialogue.json")
-            st.rerun()    
         
   return SavedDialogueData(saved_dialogues, selected_save_name, save_dialogue_name, save_dialog, prepare_json)
 
