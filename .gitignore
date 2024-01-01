@@ -8,3 +8,4 @@ pyvenv.cfg
 audio
 .DS_Store
 export
+session

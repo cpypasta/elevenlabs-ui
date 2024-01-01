@@ -56,7 +56,8 @@ def generate_and_save(
 ) -> str:
   """Generate audio from a dialogue and save it to a file."""
   audio = generate(text, voice_id, sidebar_data)
-  audio_file = f"./audio/line{line}.mp3"
+  audio_file = f"./session/{st.session_state.session_id}/audio/line{line}.mp3"
+  os.makedirs(os.path.dirname(audio_file), exist_ok=True)
   with open(audio_file, "wb") as f:
     f.write(audio)  
   return audio_file
@@ -77,7 +78,7 @@ def generate_waveform(audio_path: str) -> plt.Figure:
 
 def join_audio(line_indices: list[int], join_gap: int) -> None:
   """Join audio files found in the audio folder together with a gap in between."""
-  audio_files = [f"./audio/line{i}.mp3" for i in line_indices]
+  audio_files = [f"./session/{st.session_state.session_id}/audio/line{i}.mp3" for i in line_indices]
   log(f"joining {len(audio_files)} audio files: {line_indices}")
   
   gap = seg.silent(join_gap)
@@ -93,12 +94,12 @@ def join_audio(line_indices: list[int], join_gap: int) -> None:
   for i, s in enumerate(segments[1:]):
     final_audio += gap + s
     joining_audio_bar.progress(round((i+1) / len(segments[1:]), 2), text=progress_text)            
-  final_audio.export("./audio/dialogue.mp3", format="mp3")  
+  final_audio.export(f"./session/{st.session_state.session_id}/audio/dialogue.mp3", format="mp3")  
   joining_audio_bar.empty()
   
 def clear_audio_files() -> None:
   """Clear all audio files from the audio directory."""
-  for file in glob.glob("./audio/*.mp3"):
+  for file in glob.glob(f"./session/{st.session_state.session_id}/audio/*.mp3"):
     os.remove(file)
-  if not os.path.isdir("./audio"):
-    os.mkdir("./audio")
+  if not os.path.isdir(f"./session/{st.session_state.session_id}/audio"):
+    os.makedirs(f"./session/{st.session_state.session_id}/audio", exist_ok=True)

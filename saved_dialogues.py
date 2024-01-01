@@ -62,7 +62,7 @@ def create_saved_dialogues():
       with col22:
         delete_dialogoue = st.button("Delete", use_container_width=True)
         if delete_dialogoue and selected_save_name:
-          saved_path = f"./saves/{selected_save_name}.json"
+          saved_path = f"./session/{st.session_state.session_id}/saves/{selected_save_name}.json"
           if os.path.exists(saved_path):
             os.remove(saved_path)
             st.toast("Dialogue has been deleted. You will have to click refresh to see it.", icon="👍")
@@ -71,21 +71,25 @@ def create_saved_dialogues():
     with tab1:
       uploaded_dialogue = st.file_uploader("Import JSON", type=["json"])
       if uploaded_dialogue is not None:
-        bytes_data = uploaded_dialogue.getvalue()
-        with open(f"./saves/{uploaded_dialogue.name}", "wb") as f:
-          f.write(bytes_data)
-          st.toast("Dialogue has been uploaded. You will have to click refresh to see it.", icon="👍")
+        not_previous_upload = "imported_json" in st.session_state and st.session_state["imported_json"] != uploaded_dialogue.file_id
+        if "imported_json" not in st.session_state or not_previous_upload:
+          bytes_data = uploaded_dialogue.getvalue()
+          print(uploaded_dialogue.file_id)
+          with open(f"./session/{st.session_state.session_id}/saves/{uploaded_dialogue.name}", "wb") as f:
+            f.write(bytes_data)
+            st.session_state["imported_json"] = uploaded_dialogue.file_id
+            st.toast("Dialogue has been uploaded. You will have to click refresh to see it.", icon="👍")
     with tab2:
       st.markdown("<p style='font-size:14px'>Export JSON</p>", unsafe_allow_html=True)
       prepare_json=st.button("Prepare", use_container_width=True)
       
-      if os.path.exists("./export/dialogue.json"):
+      if os.path.exists(f"./session/{st.session_state.session_id}/export/dialogue.json"):
           download_dialogue_name = st.text_input(
             "download filename", 
             label_visibility="collapsed", 
             placeholder="Dialogue Name (file name)"
           )            
-          with open("./export/dialogue.json", "r") as f:
+          with open(f"./session/{st.session_state.session_id}/export/dialogue.json", "r") as f:
             dialogue_downloaded = st.download_button(
               label="Download", 
               data=f, 
@@ -95,7 +99,7 @@ def create_saved_dialogues():
               disabled=not download_dialogue_name
             )
             if dialogue_downloaded:
-              os.remove("./export/dialogue.json")
+              os.remove(f"./session/{st.session_state.session_id}/export/dialogue.json")
               st.rerun()    
         
   return SavedDialogueData(saved_dialogues, selected_save_name, save_dialogue_name, save_dialog, prepare_json)

@@ -1,5 +1,6 @@
 import json, os
 import pandas as pd
+import streamlit as st
 from pathlib import Path
 from elevenlabs import Voice
 from el_audio import get_voice_id
@@ -70,9 +71,11 @@ def generate_dialogue_details(
 
 def load_saved_dialogues() -> dict:
   """Load saved dialogues from the saves directory."""
-  directory = Path("./saves")
+  global_directory = Path("./saves")
+  session_directory = Path(f"./session/{st.session_state.session_id}/saves")
+  files = list(global_directory.glob("*.json")) + list(session_directory.glob("*.json"))
   names = {}
-  for json_file in directory.glob("*.json"):
+  for json_file in files:
     characters = []
     dialogues = []
     with open(json_file, "r") as f:

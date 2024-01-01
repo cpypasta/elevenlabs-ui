@@ -1,9 +1,8 @@
-import re
+import re, logging
 import pandas as pd
 import numpy as np
 import streamlit as st
-import logging
-
+    
 def extract_name(s: str) -> str:
   """Extract the voice name from the voice name with (cloned) suffix."""
   match = re.match(r"(.*?)( \(cloned\))?$", s)

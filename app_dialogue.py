@@ -1,7 +1,8 @@
-import el_audio, os
+import el_audio, os, uuid
 import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
+from streamlit_cookies_manager import EncryptedCookieManager
 from dotenv import load_dotenv
 from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match
 from sidebar import create_sidebar
@@ -18,6 +19,11 @@ def show_final_audio() -> bool:
 
 if __name__ == "__main__":
   st.set_page_config(layout="wide")
+  
+  if "session_id" not in st.session_state:
+    st.session_state["session_id"] = str(uuid.uuid4())  
+  log("session id: " + st.session_state.session_id)
+  
   st.title("🎧 ElevenLabs Dialogue")
   
   sidebar = create_sidebar()
@@ -129,10 +135,10 @@ if __name__ == "__main__":
     
     # save dialogue to file
     if saves.save_dialogue and saves.save_dialogue_name:
-      save_dialogue(character_table, dialogue_table, sidebar.voices, f"./saves/{saves.save_dialogue_name}.json")
+      save_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/saves/{saves.save_dialogue_name}.json")
       st.toast("Dialogue has been saved. You will have to click refresh to see it.", icon="👍")
     if saves.prepare_json:
-      save_dialogue(character_table, dialogue_table, sidebar.voices, "./export/dialogue.json")
+      save_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.json")
       st.rerun()
     
     # extract Dialogues from the dialogue table
@@ -189,7 +195,7 @@ if __name__ == "__main__":
           
           col1, col2 = st.columns([9, 1])
           with col1:     
-            audio_file = f"./audio/line{line.line}.mp3"
+            audio_file = f"./session/{st.session_state.session_id}/audio/line{line.line}.mp3"
             if os.path.exists(audio_file):     
               with open(audio_file, "rb") as audio:  
                 st.audio(audio)
@@ -214,7 +220,7 @@ if __name__ == "__main__":
       
       # show final audio
       if show_final_audio():
-        dialogue_path = "./audio/dialogue.mp3"
+        dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
         st.header("Final Dialogue")
         st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")
         st.audio(dialogue_path)
