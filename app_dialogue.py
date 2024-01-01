@@ -2,7 +2,6 @@ import el_audio, os, uuid
 import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
-from streamlit_cookies_manager import EncryptedCookieManager
 from dotenv import load_dotenv
 from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match
 from sidebar import create_sidebar
