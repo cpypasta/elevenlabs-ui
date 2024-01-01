@@ -1,7 +1,7 @@
 import json
 import streamlit as st
 import pandas as pd
-from dialogues import Character
+from dialogues import Character, Dialogue
 from openai import OpenAI
 from jsonschema import validate
 from utils import log
@@ -63,6 +63,12 @@ def load_dialogue_system_prompt() -> str:
   with open("openai_dialogue_system_prompt.txt", "r") as f:
     system_prompt = f.read()
     return system_prompt
+  
+def load_continue_dialogue_system_prompt() -> str:
+  """Load the continue dialogue system prompt from the file."""
+  with open("openai_continue_system_prompt.txt", "r") as f:
+    system_prompt = f.read()
+    return system_prompt
     
 def load_plot_system_prompt() -> str:
   """Load the plot system prompt from the file."""
@@ -80,9 +86,47 @@ def generate_plot_input_prompt(characters: list[Character]) -> dict:
 def generate_dialogue_input_prompt(characters: list[Character], number_of_lines: int, plot: str) -> dict:
   input_prompt = f"NUMBER OF LINES:\n<Lines>{number_of_lines}</Lines>\n\n\n"
   input_prompt += generate_plot_input_prompt(characters)
-  input_prompt += f"PLOT:\n<Plot>{plot}</Plot>\n"
+  input_prompt += f"PLOT:\n<Plot>{plot}</Plot>\n\n\n"
   return input_prompt
   
+def generate_continue_dialogue_input_prompt(characters: list[Character], number_of_lines: int, plot: str, dialogue: list[Dialogue]) -> dict:
+  input_prompt = generate_dialogue_input_prompt(characters, number_of_lines, plot)
+  input_prompt += f"EXISTING LINES:\n"
+  for line in dialogue:
+    input_prompt += f"<Dialogue><Speaker>{line.character.name}</Speaker>\n<Number>{line.line}</Number><Text>{line.text}</Text></Dialogue>\n\n\n"
+  return input_prompt
+
+def create_continue_dialogue(sidebar: SidebarData, characters: list[Character], dialogue: list[Dialogue]) -> pd.DataFrame:
+  with st.spinner("Generating dialogue..."):
+    input_prompt = generate_continue_dialogue_input_prompt(
+      characters, 
+      st.session_state["number_of_lines"], 
+      st.session_state["plot"], 
+      dialogue
+    )
+    system_prompt = load_continue_dialogue_system_prompt()
+    try:
+      if "audio_files" in st.session_state:
+        del st.session_state["audio_files"]
+      if "final_audio" in st.session_state:
+        del st.session_state["final_audio"]
+        
+      lines = [d.to_dict(without_line=True) for d in dialogue]
+      dialogue = generate_dialogue(system_prompt, input_prompt, sidebar)
+      dialogue = json.loads(dialogue)
+      validate(instance=dialogue, schema=openai_dialogue_schema)
+      for line in dialogue["dialogue"]:
+        character_found = next((c for c in characters if c.name == line["Speaker"]), None)
+        if character_found:
+          lines.append({ "Speaker": line["Speaker"], "Text": line["Text"] })
+      log(f"lines produced: {len(lines)}")
+      result = pd.DataFrame(lines, columns=["Speaker", "Text"])
+      return result
+    except Exception as e:
+      log(e)
+      st.error("An error occured while generating the dialogue. Please try again.") 
+      return None
+
 def create_dialogue_generation(sidebar: SidebarData, characters: list[Character]) -> pd.DataFrame:
   result = None
   
@@ -109,6 +153,7 @@ def create_dialogue_generation(sidebar: SidebarData, characters: list[Character]
         st.session_state["plot"] = plot
         
       number_of_lines = st.slider("Approximate Number of Dialogue Lines", 5, 50, 10, 5)
+      st.session_state["number_of_lines"] = number_of_lines
       generate_dialogue_btn = st.button(
         "Generate Dialogue", 
         use_container_width=True, 

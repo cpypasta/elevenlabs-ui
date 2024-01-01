@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match
 from sidebar import create_sidebar
 from saved_dialogues import create_saved_dialogues, get_selected_characters, get_selected_dialogue
-from generate import create_dialogue_generation
+from generate import create_dialogue_generation, create_continue_dialogue
 from utils import log
 
 load_dotenv()
@@ -151,6 +151,15 @@ if __name__ == "__main__":
         except:
           print(f"Error: {row['Speaker']} is not a valid character.")
           pass        
+      
+      # continue generated dialogue
+      if sidebar.openai_api_key and "generated_dialogue" in st.session_state:
+        continue_btn = st.button("Cotinue Dialogue", use_container_width=True)
+        if continue_btn:
+          generated_dialogue = create_continue_dialogue(sidebar, characters, dialogue)     
+          if generated_dialogue is not None: 
+            st.session_state["generated_dialogue"] = generated_dialogue
+            st.rerun()
       
       # generate audio dialogue files
       generate_btn = st.button("Generate Audio Dialogue")      
