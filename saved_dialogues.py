@@ -1,7 +1,7 @@
 import os, json
 import streamlit as st
 import pandas as pd
-from dialogues import Character, Dialogue, load_dialogues_with_names, generate_dialogue_details
+from dialogues import Character, Dialogue, load_dialogues_with_names, convert_dialogue_import_into_details
 from dataclasses import dataclass
 from utils import log
 from elevenlabs import Voice
@@ -35,32 +35,11 @@ def get_selected_dialogue(save_dialogue_data: SavedDialogueData) -> list[Dialogu
     return save_dialogue_data.saved_dialogues[save_dialogue_data.selected_save_name]["dialogue"]
   return []
 
-def convert_dialogue_import_into_details(data: str, voices: list[Voice]) -> dict:
-  """Convert the imported dialogue into a common format."""
-  characters_input, plot, dialogue_input = data.split("\n\n")
-  characters = []
-  dialogues = []  
-  
-  for character in characters_input.split("\n"):
-    if character.startswith("#"):
-      continue
-    name, description = character.split(":")
-    name, voice = name.split("|")
-    characters.append({ "Name": name, "Voice": voice, "Description": description })
-  
-  for i, line in enumerate(dialogue_input.split("\n")):
-    if line.startswith("#"):
-      continue
-    speaker, text = line.split(":")
-    character = next((c for c in characters if c["Name"] == speaker), None)
-    dialogues.append({ "Speaker": speaker, "Text": text })
-    
-  dialogue_details = generate_dialogue_details(
-    pd.DataFrame(characters, columns=["Name", "Voice", "Description"]), 
-    pd.DataFrame(dialogues, columns=["Speaker", "Text"]), 
-    voices
-  )
-  return dialogue_details
+def get_selected_plot(save_dialogue_data: SavedDialogueData) -> str:
+  """Get the plot from the selected saved dialogue."""
+  if save_dialogue_data.selected_save_name:
+    return save_dialogue_data.saved_dialogues[save_dialogue_data.selected_save_name]["plot"]
+  return None
   
 def create_saved_dialogues(voices: list[Voice]):
   """Create the saved dialogues section."""
@@ -124,23 +103,25 @@ def create_saved_dialogues(voices: list[Voice]):
       st.markdown("<p style='font-size:14px'>Export JSON</p>", unsafe_allow_html=True)
       prepare_json=st.button("Prepare", use_container_width=True)
       
-      if os.path.exists(f"./session/{st.session_state.session_id}/export/dialogue.json"):
-          download_dialogue_name = st.text_input(
-            "download filename", 
-            label_visibility="collapsed", 
-            placeholder="Dialogue Name (file name)"
-          )            
-          with open(f"./session/{st.session_state.session_id}/export/dialogue.json", "r") as f:
-            dialogue_downloaded = st.download_button(
-              label="Download", 
-              data=f, 
-              file_name=f"{download_dialogue_name}.json", 
-              mime="application/json",
-              use_container_width=True,
-              disabled=not download_dialogue_name
-            )
-          if dialogue_downloaded:
-            os.remove(f"./session/{st.session_state.session_id}/export/dialogue.json")
+      download_dialogue_path = f"./session/{st.session_state.session_id}/export/dialogue.txt"
+      if os.path.exists(download_dialogue_path):
+        log(f"Download file: {download_dialogue_path}")
+        download_dialogue_name = st.text_input(
+          "download filename", 
+          label_visibility="collapsed", 
+          placeholder="Dialogue Name (file name)"
+        )            
+        with open(download_dialogue_path, "r") as f:
+          dialogue_downloaded = st.download_button(
+            label="Download", 
+            data=f, 
+            file_name=f"{download_dialogue_name}.txt", 
+            mime="plain/txt",
+            use_container_width=True,
+            disabled=not download_dialogue_name
+          )
+        if dialogue_downloaded:
+          os.remove(download_dialogue_path)
         
   return SavedDialogueData(saved_dialogues, selected_save_name, save_dialogue_name, save_dialog, prepare_json)
 

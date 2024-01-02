@@ -53,7 +53,8 @@ class Dialogue:
 def generate_dialogue_details(
   characters_df: pd.DataFrame, 
   dialogue_df: pd.DataFrame, 
-  voices: list[Voice]
+  voices: list[Voice],
+  plot: str = None
 ) -> dict:
   """Generate dialogue details in a common format suitiable for JSON."""
   characters: list[Character] = []
@@ -65,6 +66,7 @@ def generate_dialogue_details(
     dialogue.append(Dialogue(character, i, d["Text"]).to_dict()) 
   dialogue_details = {
     "characters": [c.to_dict() for c in characters],
+    "plot": plot,
     "dialogue": dialogue
   }  
   return dialogue_details 
@@ -80,6 +82,7 @@ def load_saved_dialogues() -> dict:
     dialogues = []
     with open(json_file, "r") as f:
       data = json.load(f)
+      plot = data["plot"] if "plot" in data else ""
       for character in data["characters"]:
         characters.append(Character(
           character["Name"], 
@@ -90,7 +93,7 @@ def load_saved_dialogues() -> dict:
       for dialogue in data["dialogue"]:
         character = next((c for c in characters if c.name == dialogue["Speaker"]), None)
         dialogues.append(Dialogue(character, dialogue["Line"], dialogue["Text"]))
-    names[json_file.stem] = { "characters": characters, "dialogue": dialogues }
+    names[json_file.stem] = { "characters": characters, "plot": plot, "dialogue": dialogues }
   return names
 
 def load_dialogues_with_names() -> (list[str], dict):
@@ -99,6 +102,68 @@ def load_dialogues_with_names() -> (list[str], dict):
   saved_names = list(saved_dialogues.keys())  
   return saved_names, saved_dialogues
 
+def convert_dialogue_import_into_details(data: str, voices: list[Voice]) -> dict:
+  """Convert the imported dialogue into a common format."""
+  characters_input, plot, dialogue_input = data.split("\n\n")
+
+  plot = plot.split("\n")
+  plot = plot[1] if len(plot) > 1 else "" 
+  characters = []
+  dialogues = []      
+  
+  for character in characters_input.split("\n"):
+    if character.startswith("#"):
+      continue
+    name, description = character.split(":")
+    name, voice = name.split("|")
+    characters.append({ "Name": name, "Voice": voice, "Description": description.strip() })
+  
+  for line in dialogue_input.split("\n"):
+    if line.startswith("#"):
+      continue
+    speaker, text = line.split(":")
+    character = next((c for c in characters if c["Name"] == speaker), None)
+    dialogues.append({ "Speaker": speaker, "Text": text.strip() })
+  
+  log(f"Importing: characters:{len(characters)}, plot:{len(plot) > 0}, dialogue:{len(dialogues)}")
+  
+  dialogue_details = generate_dialogue_details(
+    pd.DataFrame(characters, columns=["Name", "Voice", "Description"]), 
+    pd.DataFrame(dialogues, columns=["Speaker", "Text"]), 
+    voices,
+    plot=plot
+  )
+  return dialogue_details
+
+def convert_dialogue_details_into_export(dialogue_details: dict) -> str:
+  """Convert dialogue details into a common format for export."""
+  characters = dialogue_details["characters"]
+  plot = dialogue_details["plot"]
+  plot = f"{plot}\n\n" if plot is not None and len(plot) > 0 else "\n"
+  dialogue = dialogue_details["dialogue"]
+  characters_output = "# CHARACTERS\n"
+  for character in characters:
+    character_description = character['Description']
+    character_description = character_description if character_description is not None and len(character_description) > 0 else ""
+    characters_output += f"{character['Name']}|{character['Voice']}: {character_description}\n"
+  dialogue_output = "# DIALOGUE\n"
+  for line in dialogue:
+    dialogue_output += f"{line['Speaker']}: {line['Text']}\n"
+  return f"{characters_output}\n# PLOT\n{plot}{dialogue_output.strip()}"
+
+def export_dialogue(
+  characters: pd.DataFrame, 
+  dialogue: pd.DataFrame, 
+  voices: list[Voice],
+  save_filename: str
+) -> None:
+  plot = st.session_state["plot"] if "plot" in st.session_state else None
+  dialogue_details = generate_dialogue_details(characters, dialogue, voices, plot=plot)
+  dialogue_export = convert_dialogue_details_into_export(dialogue_details)
+  os.makedirs(os.path.dirname(save_filename), exist_ok=True)     
+  with open(save_filename, "w") as f:
+    f.write(dialogue_export)  
+
 def save_dialogue(
   characters: pd.DataFrame, 
   dialogue: pd.DataFrame, 
@@ -106,7 +171,8 @@ def save_dialogue(
   save_filename: str
 ) -> None:
   """Save a dialogue to a JSON file."""""
-  dialogue_details = generate_dialogue_details(characters, dialogue, voices) 
+  plot = st.session_state["plot"] if "plot" in st.session_state else None
+  dialogue_details = generate_dialogue_details(characters, dialogue, voices, plot=plot) 
   os.makedirs(os.path.dirname(save_filename), exist_ok=True)     
   with open(save_filename, "w") as f:
     json.dump(dialogue_details, f, indent=2)  

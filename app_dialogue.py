@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
-from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match
+from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match, export_dialogue
 from sidebar import create_sidebar
 from saved_dialogues import create_saved_dialogues, get_selected_characters, get_selected_dialogue
 from generate import create_dialogue_generation, create_continue_dialogue
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     st.header("Dialogue")
     st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click `Generate Audio Dialogue` as often as you would like.")
     
-    generated_dialogue = create_dialogue_generation(sidebar, characters)
+    generated_dialogue = create_dialogue_generation(sidebar, saves, characters)
 
     if "generated_dialogue" in st.session_state:
       characters_matched = characters_match(character_table, st.session_state["generated_dialogue"])
@@ -133,7 +133,7 @@ if __name__ == "__main__":
       save_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/saves/{saves.save_dialogue_name}.json")
       st.toast("Dialogue has been saved. You will have to click refresh to see it.", icon="👍")
     if saves.prepare_json:
-      save_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.json")
+      export_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.txt")
       st.rerun()
     
     # extract Dialogues from the dialogue table

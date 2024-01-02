@@ -6,6 +6,7 @@ from openai import OpenAI
 from jsonschema import validate
 from utils import log
 from sidebar import SidebarData
+from saved_dialogues import get_selected_plot, SavedDialogueData
 
 openai_dialogue_schema = {
   "type": "object",
@@ -127,7 +128,7 @@ def create_continue_dialogue(sidebar: SidebarData, characters: list[Character], 
       st.error("An error occured while generating the dialogue. Please try again.") 
       return None
 
-def create_dialogue_generation(sidebar: SidebarData, characters: list[Character]) -> pd.DataFrame:
+def create_dialogue_generation(sidebar: SidebarData, saves: SavedDialogueData, characters: list[Character]) -> pd.DataFrame:
   result = None
   
   if sidebar.openai_api_key:
@@ -145,6 +146,9 @@ def create_dialogue_generation(sidebar: SidebarData, characters: list[Character]
           except Exception as e:
             log(e)
             st.error("An error occured while generating the plot. Please try again.")
+      elif saves.selected_save_name:
+        plot_value = get_selected_plot(saves)
+        st.session_state["plot"] = plot_value
       elif "plot" in st.session_state:
         plot_value = st.session_state["plot"]
       
