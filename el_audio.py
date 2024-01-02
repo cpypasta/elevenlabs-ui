@@ -94,7 +94,9 @@ def join_audio(line_indices: list[int], join_gap: int) -> None:
   for i, s in enumerate(segments[1:]):
     final_audio += gap + s
     joining_audio_bar.progress(round((i+1) / len(segments[1:]), 2), text=progress_text)            
-  final_audio.export(f"./session/{st.session_state.session_id}/audio/dialogue.mp3", format="mp3")  
+  final_audio.export(f"./session/{st.session_state.session_id}/audio/dialogue.mp3", format="mp3") 
+  if "background_added" in st.session_state:
+    del st.session_state["background_added"]
   joining_audio_bar.empty()
   
 def clear_audio_files() -> None:
@@ -103,3 +105,38 @@ def clear_audio_files() -> None:
     os.remove(file)
   if not os.path.isdir(f"./session/{st.session_state.session_id}/audio"):
     os.makedirs(f"./session/{st.session_state.session_id}/audio", exist_ok=True)
+
+@st.cache_data    
+def get_background_audio() -> list[str]:
+  """Return the names and audio for the background audio files."""
+  names = []
+  for file in glob.glob("./backgrounds/*.mp3"):
+    name = os.path.basename(file).replace(".mp3", "").replace("_", " ")
+    names.append(name)
+  return names
+
+def get_background_file_from_name(name: str) -> str:
+  """Return the background audio file from the name."""
+  return f"./backgrounds/{name.replace(' ', '_')}.mp3"
+
+def apply_background_audio(background_name: str, fade_in: bool, fade_out: bool, lower_db: int) -> None:
+  background_files = glob.glob("./backgrounds/*.mp3")
+  background_index = background_files.index(get_background_file_from_name(background_name))
+  background_file = background_files[background_index]
+  dialogue_file = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
+  
+  dialogue: seg = seg.from_mp3(dialogue_file)
+  background: seg = seg.from_mp3(background_file)
+  if background.duration_seconds > dialogue.duration_seconds:
+    background = background[:dialogue.duration_seconds * 1000]
+  if lower_db > 0:
+    background = background - lower_db
+  if fade_in:
+    background = background.fade_in(1500)
+  if fade_out:
+    background = background.fade_out(1000)
+  
+  final_dialgoue = dialogue.overlay(background)
+  final_dialgoue.export(f"./session/{st.session_state.session_id}/audio/dialogue_background.mp3", format="mp3")  
+  st.session_state["background_added"] = True
+   

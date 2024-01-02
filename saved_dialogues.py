@@ -1,7 +1,10 @@
-import os
+import os, json
 import streamlit as st
-from dialogues import Character, Dialogue, load_dialogues_with_names
+import pandas as pd
+from dialogues import Character, Dialogue, load_dialogues_with_names, generate_dialogue_details
 from dataclasses import dataclass
+from utils import log
+from elevenlabs import Voice
 
 @dataclass
 class SavedDialogueData:
@@ -32,7 +35,34 @@ def get_selected_dialogue(save_dialogue_data: SavedDialogueData) -> list[Dialogu
     return save_dialogue_data.saved_dialogues[save_dialogue_data.selected_save_name]["dialogue"]
   return []
 
-def create_saved_dialogues():
+def convert_dialogue_import_into_details(data: str, voices: list[Voice]) -> dict:
+  """Convert the imported dialogue into a common format."""
+  characters_input, plot, dialogue_input = data.split("\n\n")
+  characters = []
+  dialogues = []  
+  
+  for character in characters_input.split("\n"):
+    if character.startswith("#"):
+      continue
+    name, description = character.split(":")
+    name, voice = name.split("|")
+    characters.append({ "Name": name, "Voice": voice, "Description": description })
+  
+  for i, line in enumerate(dialogue_input.split("\n")):
+    if line.startswith("#"):
+      continue
+    speaker, text = line.split(":")
+    character = next((c for c in characters if c["Name"] == speaker), None)
+    dialogues.append({ "Speaker": speaker, "Text": text })
+    
+  dialogue_details = generate_dialogue_details(
+    pd.DataFrame(characters, columns=["Name", "Voice", "Description"]), 
+    pd.DataFrame(dialogues, columns=["Speaker", "Text"]), 
+    voices
+  )
+  return dialogue_details
+  
+def create_saved_dialogues(voices: list[Voice]):
   """Create the saved dialogues section."""
   with st.expander("Load & Save Dialogues"):
     
@@ -69,13 +99,24 @@ def create_saved_dialogues():
     
     tab1, tab2 = st.tabs(["Import", "Export"])
     with tab1:
-      uploaded_dialogue = st.file_uploader("Import JSON", type=["json"])
+      uploaded_dialogue = st.file_uploader("Import JSON", type=["json", "txt"])
       if uploaded_dialogue is not None:
         not_previous_upload = "imported_json" in st.session_state and st.session_state["imported_json"] != uploaded_dialogue.file_id
         if "imported_json" not in st.session_state or not_previous_upload:
           bytes_data = uploaded_dialogue.getvalue()
-          print(uploaded_dialogue.file_id)
-          with open(f"./session/{st.session_state.session_id}/saves/{uploaded_dialogue.name}", "wb") as f:
+          st.session_state["imported_json"] = uploaded_dialogue.file_id
+          
+          import_name = uploaded_dialogue.name.replace("_", " ")
+          
+          uploaded_string = bytes_data.decode("utf-8")
+          if uploaded_string.startswith("# CHARACTERS"):
+            dialogue_details = convert_dialogue_import_into_details(uploaded_string, voices)
+            bytes_data = json.dumps(dialogue_details, indent=2).encode("utf-8")
+            import_name = import_name.replace(".txt", ".json")
+          
+          import_path = f"./session/{st.session_state.session_id}/saves/{import_name}"
+          os.makedirs(os.path.dirname(import_path), exist_ok=True)                            
+          with open(import_path, "wb") as f:
             f.write(bytes_data)
             st.session_state["imported_json"] = uploaded_dialogue.file_id
             st.toast("Dialogue has been uploaded. You will have to click refresh to see it.", icon="👍")

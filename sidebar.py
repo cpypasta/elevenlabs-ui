@@ -77,7 +77,10 @@ def create_sidebar() -> SidebarData:
         openai_api_key = st.text_input("API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
         if openai_api_key:
           openai_models = get_models(openai_api_key)
-          gpt4_index = openai_models.index("gpt-3.5-turbo-16k")
+          try:
+            gpt4_index = openai_models.index("gpt-3.5-turbo-16k")
+          except:
+            gpt4_index = 0
           openai_model = st.selectbox("Model", openai_models, index=gpt4_index)
           openai_temp = st.slider("Temperature", 0.0, 1.5, 1.3, 0.1,  help="The higher the temperature, the more creative the text.")
           openai_max_tokens = st.slider("Max Tokens", 1024, 10000, 3072, 1024, help="Check the official documentation on maximum token size for the selected model.")
@@ -90,7 +93,11 @@ def create_sidebar() -> SidebarData:
         models = el_audio.get_models()
         model_ids = [m.model_id for m in models]
         model_names = [m.name for m in models]
-        model_name = st.selectbox("Speech Model", model_names)
+        try:
+          turbo_model_index = model_names.index("Eleven Turbo v2")
+        except:
+          turbo_model_index = 0
+        model_name = st.selectbox("Speech Model", model_names, index=turbo_model_index)
         if model_name:
           model_index = model_names.index(model_name)
           model_id = model_ids[model_index]   

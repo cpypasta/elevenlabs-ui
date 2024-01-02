@@ -132,7 +132,7 @@ def create_dialogue_generation(sidebar: SidebarData, characters: list[Character]
   
   if sidebar.openai_api_key:
     with st.expander("Dialogue Generation"):
-      st.markdown("You can generate the dialogue using OpenAI. It will use the character descriptions and the plot to generate the dialogue. If you are not feeling creative, you can even have OpenAI generate the plot using the character descriptions. If you are not getting the number of lines, either try again or put in the plot text the number of lines you desire to provide encouragement to OpenAI.")
+      st.markdown("You can generate the dialogue using OpenAI. It will use the character descriptions and the plot to generate the dialogue. If you are not feeling creative, you can even have OpenAI generate the plot using the character descriptions. If you are not getting the desired number of dialogue lines, either try again or put in the plot the number of lines you desire to provide encouragement to OpenAI.")
       generate_plot_btn = st.button("Generate Plot", use_container_width=True)
       plot_value = ""
       if generate_plot_btn:
