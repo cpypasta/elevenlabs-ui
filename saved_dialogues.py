@@ -57,8 +57,7 @@ def save_imported_dialogue(data: bytes, voices: list[Voice], file_id: str, impor
   
 def create_saved_dialogues(voices: list[Voice]):
   """Create the saved dialogues section."""
-  with st.expander("Load & Save Dialogues"):
-    
+  with st.expander("Load & Save Dialogues"):    
     st.markdown("Save")
     col1, col2 = st.columns([7, 3])
     with col1:

@@ -82,7 +82,8 @@ def load_saved_dialogues() -> dict:
     dialogues = []
     with open(json_file, "r") as f:
       data = json.load(f)
-      plot = data["plot"] if "plot" in data else ""
+      plot = data["plot"] if "plot" in data and data["plot"] is not None else ""
+
       for character in data["characters"]:
         characters.append(Character(
           character["Name"], 

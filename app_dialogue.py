@@ -163,10 +163,10 @@ if __name__ == "__main__":
       # generate audio dialogue files
       existing_audio_files = el_audio.get_generated_audio()
       show_existing_audio_files = len(existing_audio_files) > 0 and "imported_file" in st.session_state
-      col1, col2 = st.columns([1, 1])
-      with col1:      
-        generate_btn = st.button("Generate Audio Dialogue", use_container_width=True) 
-      if show_existing_audio_files:     
+      if show_existing_audio_files:
+        col1, col2 = st.columns([1, 1])
+        with col1:      
+          generate_btn = st.button("Generate Audio Dialogue", use_container_width=True) 
         with col2:
           use_existing_btn = st.button(
             "Use Existing Audio", 
@@ -174,6 +174,8 @@ if __name__ == "__main__":
             help="Use the existing audio files imported from a project.")
           if use_existing_btn:
             st.session_state["audio_files"] = existing_audio_files
+      else:
+        generate_btn = st.button("Generate Audio Dialogue", use_container_width=True)
       if generate_btn:
         st.session_state["final_audio"] = False
         el_audio.clear_audio_files()
@@ -334,7 +336,7 @@ if __name__ == "__main__":
       
       # join final audio
       if "audio_files" in st.session_state:
-        join_dialogue = st.button("Join Dialogue")
+        join_dialogue = st.button("Join Dialogue", use_container_width=True)
         line_indices = [d.line for d in dialogue]
         if join_dialogue:          
           el_audio.join_audio(line_indices, sidebar.join_gap)
@@ -344,7 +346,7 @@ if __name__ == "__main__":
       if show_final_audio():
         st.header("Final Dialogue")
         st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
-        
+                
         with st.expander("Background Audio"):
           background_names = el_audio.get_background_audio()
           st.markdown("You can add background audio to the final dialogue. If you want to remove the background audio, you will have to regenerate the final dialogue by clicking `Join Dialogue`.")
@@ -357,11 +359,11 @@ if __name__ == "__main__":
           )
           if background_name:
             st.audio(el_audio.get_background_file_from_name(background_name))
-          col1, col2 = st.columns([1, 3])
-          with col1:
+          background_fade, background_volume = st.columns([1, 3])
+          with background_fade:
             fade_in = st.toggle("Fade In", value=True)
             fade_out = st.toggle("Fade Out", value=True)
-          with col2:
+          with background_volume:
             lower_db = st.slider("Lower Background Volume (dB)", 0, 15, 0, 1, help="lowers the background audio by specified decibels")
 
           log(f"Background settings: Fade In:{fade_in}, Fade Out:{fade_out}, Lower Db:{lower_db}")
