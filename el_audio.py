@@ -1,4 +1,4 @@
-import os, glob, utils
+import os, glob, utils, shutil, io
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
@@ -62,6 +62,26 @@ def generate_and_save(
     f.write(audio)  
   return audio_file
 
+def export_audio() -> None:
+  """Export the audio files from the audio folder to the export folder."""
+  src_dir = f"./session/{st.session_state.session_id}/audio"
+  dst_dir = f"./session/{st.session_state.session_id}/export/audio"
+  if os.path.exists(dst_dir):
+    shutil.rmtree(dst_dir)
+  shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns("dialogue.mp3"))
+
+def import_audio() -> list[str]:
+  src_dir = f"./session/{st.session_state.session_id}/import/contents/audio"
+  dst_dir = f"./session/{st.session_state.session_id}/audio"
+  if os.path.exists(dst_dir):
+    shutil.rmtree(dst_dir)
+  shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)  
+  return glob.glob(f"{dst_dir}/*.mp3")
+
+def get_generated_audio() -> list[str]:
+  """Return whether the audio files have been generated."""
+  return glob.glob(f"./session/{st.session_state.session_id}/audio/line*.mp3")
+
 def generate_waveform(audio_path: str) -> plt.Figure:
   """Generate a waveform plot figure from the mp3 file."""
   audio: seg = seg.from_mp3(audio_path)
@@ -113,13 +133,98 @@ def get_background_audio() -> list[str]:
   for file in glob.glob("./backgrounds/*.mp3"):
     name = os.path.basename(file).replace(".mp3", "").replace("_", " ")
     names.append(name)
-  return names
+  return sorted(names)
 
 def get_background_file_from_name(name: str) -> str:
   """Return the background audio file from the name."""
   return f"./backgrounds/{name.replace(' ', '_')}.mp3"
+ 
+def segment_to_bytes(segment: seg) -> bytes:
+  if segment is None:
+    return None
+  buffer = io.BytesIO()
+  segment.export(buffer, format="wav")
+  audio_bytes = buffer.getvalue()
+  return audio_bytes 
+
+def edit_audio(
+  speech_path: str, 
+  volume: int = None, 
+  effect_path: str = None,
+  start_effect: float = None,
+  effect_volume: int = None,
+  effect_repeat: int = None
+) -> (seg, seg):
+  """Edit the audio file by changing the volume."""
+  audio: seg = seg.from_mp3(speech_path)
+  if volume:
+    audio = audio + volume
+  effect = None
+  if effect_path:
+    effect: seg = seg.from_wav(effect_path)
+    if effect_volume:
+      effect = effect + effect_volume
+    if effect_repeat:
+      log(f"repeating effect: {effect_repeat}")
+      log("duration before repeat: " + str(effect.duration_seconds))
+      effect = effect * effect_repeat
+      log("duration after repeat: " + str(effect.duration_seconds))
+    
+    audio_duration = audio.duration_seconds
+    effect_duration = effect.duration_seconds
+    effect_total_duration = effect_duration + start_effect
+    if effect_total_duration > audio_duration:
+      log("fading out effect")
+      effect_excess = effect_total_duration - audio_duration
+      log(f"effect excess: {effect_excess}")
+      effect = effect[:int((effect_duration - effect_excess) * 1000)]
+      effect = effect.fade_out(1000)
+    
+    audio = audio.overlay(effect, position=start_effect * 1000)
+  return effect, audio
+
+def preview_audio(
+  speech_path: str, 
+  volume: int = None, 
+  effect_path: str = None,
+  start_effect: float = None,
+  effect_volume: int = None,
+  effect_repeat: int = None
+) -> (bytes, bytes):
+  """Preview the audio file after editing."""
+  effect, audio = edit_audio(
+    speech_path, 
+    volume, 
+    effect_path, 
+    start_effect,
+    effect_volume,
+    effect_repeat
+  )
+  return segment_to_bytes(effect), segment_to_bytes(audio)
+
+def get_effects() -> list[str]:
+  """Get the effects from the effects folder."""
+  return glob.glob("./effects/*.wav")
+
+def get_effect_names() -> list[str]:
+  """Get the effect names from the effects folder."""
+  names = []
+  for file in get_effects():
+    name = os.path.basename(file).replace(".wav", "").replace("_", " ")
+    names.append(name)
+  return sorted(names)
+
+def get_audio_duration(filename: str) -> float:
+  """Get the duration of the speech in seconds."""
+  audio: seg = seg.from_mp3(filename)
+  return audio.duration_seconds
+
+def get_effect_path(name: str) -> str:
+  """Get the effect path from the effect name."""
+  return f"./effects/{name.replace(' ', '_')}.wav"
 
 def apply_background_audio(background_name: str, fade_in: bool, fade_out: bool, lower_db: int) -> None:
+  """Apply the background audio to the dialogue audio."""
   background_files = glob.glob("./backgrounds/*.mp3")
   background_index = background_files.index(get_background_file_from_name(background_name))
   background_file = background_files[background_index]

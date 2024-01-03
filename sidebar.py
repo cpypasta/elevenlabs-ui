@@ -4,6 +4,7 @@ from elevenlabs import Voice, set_api_key
 from dataclasses import dataclass
 from utils import log
 from openai import OpenAI
+from streamlit_js_eval import streamlit_js_eval
 
 @dataclass
 class SidebarData:
@@ -68,7 +69,7 @@ def get_models(openai_api_key: str) -> list[str]:
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
   with st.sidebar:
-    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")    
+    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")        
     
     if el_key:
       set_api_key(el_key)          
@@ -162,7 +163,12 @@ def create_sidebar() -> SidebarData:
             st.audio(el_voice_details.preview_url, format="audio/mp3")
         
           st.markdown(f"_Voice ID: {el_voice_id}_") 
-                
+      
+      clear_dialogue = st.button("Clear Dialogue", help=":warning: Clear everything and start over. :warning:", use_container_width=True)
+      if clear_dialogue:
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+      
+      
       return SidebarData(
         el_key=el_key,
         model_id=model_id,

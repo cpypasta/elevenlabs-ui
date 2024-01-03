@@ -1,11 +1,12 @@
-import el_audio, os, uuid
+import el_audio, os, uuid, shutil, time
 import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
+from pydub import AudioSegment
 from dotenv import load_dotenv
 from dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match, export_dialogue
 from sidebar import create_sidebar
-from saved_dialogues import create_saved_dialogues, get_selected_characters, get_selected_dialogue
+from saved_dialogues import get_selected_characters, get_selected_dialogue, on_load_saved, create_saved_dialogues
 from generate import create_dialogue_generation, create_continue_dialogue
 from utils import log
 
@@ -28,7 +29,8 @@ if __name__ == "__main__":
   sidebar = create_sidebar()
     
   if sidebar.el_key:
-    saves = create_saved_dialogues(sidebar.voices)
+    saves = create_saved_dialogues(sidebar.voices)    
+    
     st.header("Characters")
     st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the `Voice Explorer` in the sidebar if you want to hear what a voice sounds like.")
     with st.expander("**WARNING**: changing characters can clear the dialogue"):
@@ -132,7 +134,7 @@ if __name__ == "__main__":
     if saves.save_dialogue and saves.save_dialogue_name:
       save_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/saves/{saves.save_dialogue_name}.json")
       st.toast("Dialogue has been saved. You will have to click refresh to see it.", icon="👍")
-    if saves.prepare_json:
+    if saves.prepare_export:
       export_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.txt")
       st.rerun()
     
@@ -147,6 +149,7 @@ if __name__ == "__main__":
         except:
           print(f"Error: {row['Speaker']} is not a valid character.")
           pass        
+      dialogue.sort(key=lambda x: x.line)
       
       # continue generated dialogue
       if sidebar.openai_api_key and not dialogue_table.empty:
@@ -158,7 +161,19 @@ if __name__ == "__main__":
             st.rerun()
       
       # generate audio dialogue files
-      generate_btn = st.button("Generate Audio Dialogue")      
+      existing_audio_files = el_audio.get_generated_audio()
+      show_existing_audio_files = len(existing_audio_files) > 0 and "imported_file" in st.session_state
+      col1, col2 = st.columns([1, 1])
+      with col1:      
+        generate_btn = st.button("Generate Audio Dialogue", use_container_width=True) 
+      if show_existing_audio_files:     
+        with col2:
+          use_existing_btn = st.button(
+            "Use Existing Audio", 
+            use_container_width=True, 
+            help="Use the existing audio files imported from a project.")
+          if use_existing_btn:
+            st.session_state["audio_files"] = existing_audio_files
       if generate_btn:
         st.session_state["final_audio"] = False
         el_audio.clear_audio_files()
@@ -187,7 +202,15 @@ if __name__ == "__main__":
         else:
           st.session_state["audio_files"] = audio_files
       
-      if "audio_files" in st.session_state:        
+      if saves.prepare_project:
+        export_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.txt")
+        el_audio.export_audio()
+        project_path = f"./session/{st.session_state.session_id}/project"
+        os.makedirs(project_path, exist_ok=True)
+        shutil.make_archive(f"{project_path}/project", "zip", f"./session/{st.session_state.session_id}/export")
+        st.rerun()
+      
+      if "audio_files" in st.session_state:   
         # display generated audio
         st.header("Audio Dialogue")
         st.markdown("The dialogue text has now been coverted into audio. You can listen to the audio by clicking the play button. If you want to regenerate the audio, you can click the `Generate Audio Dialogue` button above. If you are happy with the audio, you can join the audio files together by clicking the `Join Dialogue` button below. You can also click the `Redo` button to regenerate the audio for a specific line.")
@@ -212,7 +235,102 @@ if __name__ == "__main__":
             with st.spinner("Generating audio..."):
               log(f"regenerating audio for {redo_key} for {line.character.name} with {line.character.voice}")
               el_audio.generate_and_save(line.text, line.character.voice_id, line.line, sidebar)
-            st.rerun()                   
+            st.rerun()
+          with st.expander("Edit Audio"):
+            st.markdown("### 🔊 Basic Settings")
+            line_volume = st.slider(
+              "Adjust Speech Volume (dB)",
+              -25, 
+              25, 
+              0, 
+              1, 
+              key=f"volume_{line.line}"
+            )
+            st.markdown("### 💥 Special Effect")
+            effect_name = st.selectbox(
+              "Effects", 
+              el_audio.get_effect_names(), 
+              index=None, 
+              label_visibility="collapsed", 
+              placeholder="Select an effect",
+              key=f"effect_{line.line}"
+            )
+            if effect_name:
+              effect_path = el_audio.get_effect_path(effect_name)
+              st.audio(effect_path)
+              speech_duration = el_audio.get_audio_duration(audio_file)
+              
+              effect_volume = st.slider(
+                "Adjust Effect Volume (dB)",
+                -25, 
+                25, 
+                0, 
+                1, 
+                key=f"effect_volume_{line.line}"
+              )              
+              effect_start = st.slider(
+                "Effect Start Time (seconds)", 
+                0.0, 
+                speech_duration, 
+                0.0, 
+                0.1, 
+                key=f"effect_start_{line.line}",
+                help="When the effect should start playing. The effect will cut off if it exceeds the speech."
+              )              
+              effect_repeat = st.slider(
+                "Effect Repeat",
+                1,
+                10,
+                1,
+                1,
+                key=f"effect_repeat_{line.line}",
+                help="If you want the effect to repeat itself."
+              )
+            else:
+              effect_path = None
+              effect_start = None
+              effect_volume = None
+              effect_repeat = None
+              
+            preview_effect = st.button(
+              "Preview", 
+              key=f"preview_{line.line}",
+              use_container_width=True
+            )
+            if preview_effect:
+              effect_audio, preview_audio = el_audio.preview_audio(
+                audio_file, 
+                line_volume, 
+                effect_path,
+                effect_start,
+                effect_volume,
+                effect_repeat
+              )
+              
+              if effect_name:
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                  st.markdown("<p style='font-size:14px'>Effect Preview</p>", unsafe_allow_html=True)
+                  st.audio(effect_audio, format="audio/wav")
+                with col2:
+                  st.markdown("<p style='font-size:14px'>Overlay Preview</p>", unsafe_allow_html=True)              
+                  st.audio(preview_audio, format="audio/wav")
+              else:
+                st.audio(preview_audio, format="audio/wav")
+            
+            apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
+            if apply_edits:
+              _, new_line_audio = el_audio.edit_audio(
+                audio_file, 
+                line_volume, 
+                effect_path,
+                effect_start,
+                effect_volume,
+                effect_repeat                
+              )
+              new_line_audio.export(audio_file, format="mp3")
+              log(f"saving audio {audio_file}")
+              st.rerun()
       
       # join final audio
       if "audio_files" in st.session_state:
@@ -245,6 +363,8 @@ if __name__ == "__main__":
             fade_out = st.toggle("Fade Out", value=True)
           with col2:
             lower_db = st.slider("Lower Background Volume (dB)", 0, 15, 0, 1, help="lowers the background audio by specified decibels")
+
+          log(f"Background settings: Fade In:{fade_in}, Fade Out:{fade_out}, Lower Db:{lower_db}")
 
           add_background_btn = st.button("Add Background", use_container_width=True)
           if add_background_btn and background_name:
