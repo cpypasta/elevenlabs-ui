@@ -228,8 +228,10 @@ if __name__ == "__main__":
             if os.path.exists(audio_file):     
               with open(audio_file, "rb") as audio:  
                 st.audio(audio)
+              audio_file_found = True
             else:
-              st.markdown("Audio file not found. Please click the `Redo` button.")       
+              st.markdown("Audio file not found. Please click the `Redo` button.")  
+              audio_file_found = False
           with col2:
             redo_key = f"redo_{line.line}"
             redo_btn = st.button("Redo", key=redo_key)
@@ -238,102 +240,252 @@ if __name__ == "__main__":
               log(f"regenerating audio for {redo_key} for {line.character.name} with {line.character.voice}")
               el_audio.generate_and_save(line.text, line.character.voice_id, line.line, sidebar)
             st.rerun()
-          with st.expander("Edit Audio"):
-            st.markdown("### 🔊 Basic Settings")
-            line_volume = st.slider(
-              "Adjust Speech Volume (dB)",
-              -25, 
-              25, 
-              0, 
-              1, 
-              key=f"volume_{line.line}"
-            )
-            st.markdown("### 💥 Special Effect")
-            effect_name = st.selectbox(
-              "Effects", 
-              el_audio.get_effect_names(), 
-              index=None, 
-              label_visibility="collapsed", 
-              placeholder="Select an effect",
-              key=f"effect_{line.line}"
-            )
-            if effect_name:
-              effect_path = el_audio.get_effect_path(effect_name)
-              st.audio(effect_path)
-              speech_duration = el_audio.get_audio_duration(audio_file)
-              
-              effect_volume = st.slider(
-                "Adjust Effect Volume (dB)",
-                -25, 
-                25, 
-                0, 
-                1, 
-                key=f"effect_volume_{line.line}"
-              )              
-              effect_start = st.slider(
-                "Effect Start Time (seconds)", 
-                0.0, 
-                speech_duration, 
-                0.0, 
-                0.1, 
-                key=f"effect_start_{line.line}",
-                help="When the effect should start playing. The effect will cut off if it exceeds the speech."
-              )              
-              effect_repeat = st.slider(
-                "Effect Repeat",
-                1,
-                10,
-                1,
-                1,
-                key=f"effect_repeat_{line.line}",
-                help="If you want the effect to repeat itself."
+          if audio_file_found:
+            with st.expander("Edit Audio"):
+              basic_tab, soundboard_tab, special_tab,  = st.tabs(["Basic", "Soundboard", "Special Effect"])
+              with basic_tab:
+                st.markdown("### 🔊 Basic Settings")
+                line_volume = st.slider(
+                  "Adjust Speech Volume (dB)",
+                  -25, 
+                  25, 
+                  0, 
+                  1, 
+                  key=f"volume_{line.line}"
+                )
+                
+              with soundboard_tab:
+                st.markdown("### 👂💫 Soundboard")
+                compressor_tab, chorus_tab, distortion_tab, noise_gate_tab, reverb_tab = st.tabs([
+                  "Compressor", 
+                  "Chorus",
+                  "Distortion",
+                  "Noise Gate",
+                  "Reverb"
+                ])
+                with compressor_tab:
+                  st.markdown("A compressor controls the dynamic range of an audio signal. In other words, it reduces loud volumes by \"compressing\" the audio range.")
+                  st.markdown(f"Loudest Volume (decibel full scale): {round(el_audio.get_audio_max_decibels(audio_file), 2)} dBFS")
+                  compressor_threshold_db = st.slider(
+                    "Threshold (dB)",
+                    -20.0, 0.0, 0.0, 0.5,
+                    key=f"compressor_threshold_db_{line.line}",
+                    help="The threshold above which compression is applied."
+                  )
+                  compressor_ratio = st.slider(
+                    "Ratio",
+                    1.0, 20.0, 2.0, 0.5,
+                    key=f"compressor_ratio_{line.line}",
+                    help="The amount of compression applied when the threshold is exceeded."
+                  )          
+                with chorus_tab:
+                  st.markdown("A chorus effect makes a sound seem like it is being played by multiple sources at once which creates a \"shimmering\" sound.")
+                  chorus_rate_hz = st.slider(
+                    "Rate (Hz)",
+                    0.0, 20.0, 0.0, 0.1,
+                    key=f"chorus_rate_hz_{line.line}",
+                    help="The low-frequency oscillator (LFO) in hertz (cycles per second)."
+                  )                  
+                  chorus_depth = st.slider(
+                    "Depth",
+                    0.25, 1.0, 0.25, 0.05,
+                    key=f"chorus_depth_{line.line}",
+                    help="Amount of modulation applied as set by the LFO."
+                  )
+                  chorus_centre_delay = st.slider(
+                    "Delay (ms)",
+                    0.0, 20.0, 7.0, 0.5,
+                    key=f"chorus_delay_{line.line}",
+                    help="The delay effect around the LFO."
+                  )
+                  chorus_feedback = st.slider(
+                    "Feedback",
+                    0.0, 1.0, 0.0, 0.1,
+                    key=f"chorus_feedback_{line.line}",
+                    help="The amount of output signal feed back into the input."
+                  )                                                              
+                with distortion_tab:
+                  st.markdown("A distortion effect adds a \"gritty\" sound to the audio.")
+                  distortion_db = st.slider(
+                    "Drive (Db)",
+                    0.0, 50.0, 0.0, 1.0,
+                    key=f"distortion_db_{line.line}",
+                    help="The amount of distortion."
+                  )                    
+                with noise_gate_tab:
+                  st.markdown("A noise gate removes unwanted noise from the audio, often background noise. It is similar to the compressor, but a noise gate cuts off audio above a threshold instead of compressing it.")
+                  st.markdown(f"Loudest Volume (decibel full scale): {round(el_audio.get_audio_max_decibels(audio_file), 2)} dBFS")                  
+                  noise_gate_threshold_db = st.slider(
+                    "Threshold (dB)",
+                    -20.0, 0.0, 0.0, 0.5,
+                    key=f"noise_gate_threshold_db_{line.line}",
+                    help="The threshold above which audio is cut off."
+                  )                 
+                  noise_gate_ratio = st.slider(
+                    "Ratio",
+                    0.0, 20.0, 2.0, 0.5,
+                    key=f"noise_gate_ratio_{line.line}",
+                    help="The amount that should be cut off when the threshold is exceeded."
+                  )                        
+                with reverb_tab:
+                  st.markdown("A reverb effect simulates the sound of a room. It is often used to make a sound seem more natural.")
+                  reverb_room_size = st.slider(
+                    "Room Size",
+                    0.0, 1.0, 0.0, 0.01,
+                    key=f"reverb_room_size_{line.line}",
+                    help="The perceived size of the room."
+                  )   
+                  reverb_damping = st.slider(
+                    "Damping",
+                    0.0, 1.0, 0.5, 0.1,
+                    key=f"reverb_damping_{line.line}",
+                    help="The amount of absorption of sound in the room."
+                  )  
+                  reverb_wet_level = st.slider(
+                    "Wet Level",
+                    0.0, 1.0, 0.33, 0.01,
+                    key=f"reverb_wet_level_{line.line}",
+                    help="The level of the reverberated signal."
+                  )  
+                  reverb_dry_level = st.slider(
+                    "Dry Level",
+                    0.0, 1.0, 0.4, 0.01,
+                    key=f"reverb_dry_level_{line.line}",
+                    help="The level of the original signal."
+                  )                                                                        
+                                
+                
+                soundboard = el_audio.Soundboard(
+                  compressor_threshold_db, 
+                  compressor_ratio,
+                  chorus_rate_hz,
+                  chorus_depth,
+                  chorus_centre_delay,
+                  chorus_feedback,
+                  reverb_room_size,
+                  reverb_damping,
+                  reverb_wet_level,
+                  reverb_dry_level,
+                  distortion_db,
+                  noise_gate_threshold_db,
+                  noise_gate_ratio
+                )
+                              
+              with special_tab:
+                st.markdown("### 💥 Special Effect")
+                effect_name = st.selectbox(
+                  "Effects", 
+                  el_audio.get_effect_names(), 
+                  index=None, 
+                  label_visibility="collapsed", 
+                  placeholder="Select an effect",
+                  key=f"effect_{line.line}"
+                )
+                if effect_name:
+                  effect_path = el_audio.get_effect_path(effect_name)
+                  st.audio(effect_path)                
+                    
+                  speech_duration = el_audio.get_audio_duration(audio_file)    
+                  
+                  effect_volume_tab, effect_timing_tab = st.tabs(["Volume", "Timing"])
+                  with effect_volume_tab:            
+                    effect_volume = st.slider(
+                      "Adjust Effect Volume (dB)",
+                      -25, 
+                      25, 
+                      0, 
+                      1, 
+                      key=f"effect_volume_{line.line}"
+                    )    
+                    effect_fade_out = st.slider(
+                      "Effect Fade Out (milliseconds)",
+                      0, 
+                      5000, 
+                      0, 
+                      50, 
+                      key=f"effect_fade_out_{line.line}",
+                      help="Fades the effect out, which is particularly helpful if the effect is longer than the speech."
+                    )                      
+                  with effect_timing_tab:          
+                    effect_start = st.slider(
+                      "Effect Start Time (seconds)", 
+                      0.0, 
+                      speech_duration, 
+                      0.0, 
+                      0.1, 
+                      key=f"effect_start_{line.line}",
+                      help="When the effect should start playing. The effect will cut off if it exceeds the speech."
+                    )              
+                    effect_repeat = st.slider(
+                      "Effect Repeat",
+                      1,
+                      10,
+                      1,
+                      1,
+                      key=f"effect_repeat_{line.line}",
+                      help="If you want the effect to repeat itself."
+                    )
+                else:
+                  effect_path = None
+                  effect_start = None
+                  effect_volume = None
+                  effect_repeat = None
+                  effect_fade_out = None
+                
+              preview_line = st.button(
+                "Preview", 
+                key=f"preview_{line.line}",
+                use_container_width=True
               )
-            else:
-              effect_path = None
-              effect_start = None
-              effect_volume = None
-              effect_repeat = None
-              
-            preview_effect = st.button(
-              "Preview", 
-              key=f"preview_{line.line}",
-              use_container_width=True
-            )
-            if preview_effect:
-              effect_audio, preview_audio = el_audio.preview_audio(
-                audio_file, 
-                line_volume, 
-                effect_path,
-                effect_start,
-                effect_volume,
-                effect_repeat
-              )
-              
-              if effect_name:
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                  st.markdown("<p style='font-size:14px'>Effect Preview</p>", unsafe_allow_html=True)
-                  st.audio(effect_audio, format="audio/wav")
-                with col2:
-                  st.markdown("<p style='font-size:14px'>Overlay Preview</p>", unsafe_allow_html=True)              
+              if preview_line:
+                effect_audio, preview_audio = el_audio.preview_audio(
+                  audio_file, 
+                  line_volume, 
+                  effect_path,
+                  effect_start,
+                  effect_volume,
+                  effect_repeat,
+                  effect_fade_out,
+                  soundboard
+                )                          
+                
+                if effect_name:
+                  col1, col2 = st.columns([1, 1])
+                  with col1:
+                    st.markdown("<p style='font-size:14px'>Special Effect Preview</p>", unsafe_allow_html=True)
+                    st.audio(effect_audio, format="audio/wav")
+                  with col2:
+                    st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)              
+                    st.audio(preview_audio, format="audio/wav")
+                else:
                   st.audio(preview_audio, format="audio/wav")
-              else:
-                st.audio(preview_audio, format="audio/wav")
-            
-            apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
-            if apply_edits:
-              _, new_line_audio = el_audio.edit_audio(
-                audio_file, 
-                line_volume, 
-                effect_path,
-                effect_start,
-                effect_volume,
-                effect_repeat                
-              )
-              new_line_audio.export(audio_file, format="mp3")
-              log(f"saving audio {audio_file}")
-              st.rerun()
-      
+                            
+                org_audio_waveform, new_audio_waveform = st.columns([1, 1])
+                with org_audio_waveform:
+                  st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
+                  y_max, plot = el_audio.generate_waveform_from_file(audio_file)
+                  st.pyplot(plot)                  
+                with new_audio_waveform:
+                  st.markdown("<p style='font-size:14px'>Updated</p>", unsafe_allow_html=True)
+                  _, plot = el_audio.generate_waveform_from_bytes(preview_audio, y_max)
+                  st.pyplot(plot) 
+                                   
+              apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
+              if apply_edits:
+                _, new_line_audio = el_audio.edit_audio(
+                  audio_file, 
+                  line_volume, 
+                  effect_path,
+                  effect_start,
+                  effect_volume,
+                  effect_repeat,
+                  effect_fade_out,
+                  soundboard                
+                )
+                new_line_audio.export(audio_file, format="mp3")
+                log(f"saving audio {audio_file}")
+                st.rerun()
+        
       # join final audio
       if "audio_files" in st.session_state:
         join_dialogue = st.button("Join Dialogue", use_container_width=True)
@@ -381,6 +533,6 @@ if __name__ == "__main__":
           dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
                   
         st.audio(dialogue_path)
-        fig = el_audio.generate_waveform(dialogue_path)       
+        _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
         st.pyplot(fig)
     

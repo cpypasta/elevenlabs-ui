@@ -6,7 +6,27 @@ from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices,
 from pydub import AudioSegment as seg
 from sidebar import SidebarData
 from utils import log
+from pedalboard import Pedalboard, Compressor, Chorus, Reverb, Distortion, NoiseGate
+from pedalboard.io import AudioFile
+from dataclasses import dataclass
 
+@dataclass
+class Soundboard:
+  compressor_threshold_db: float
+  compressor_ratio: float
+  chorus_rate_hz: float
+  chorus_depth: float
+  chorus_centre_delay: float
+  chorus_feedback: float
+  reverb_room_size: float
+  reverb_damping: float
+  reverb_web_level: float
+  reverb_dry_level: float
+  distortion_db: float
+  noise_gate_threshold_db: float
+  noise_gate_ratio: float
+  
+  
 @st.cache_data
 def get_voices() -> list[Voice]:
   """Get a list of voices from the Eleven Labs API."""
@@ -82,9 +102,8 @@ def get_generated_audio() -> list[str]:
   """Return whether the audio files have been generated."""
   return glob.glob(f"./session/{st.session_state.session_id}/audio/line*.mp3")
 
-def generate_waveform(audio_path: str) -> plt.Figure:
-  """Generate a waveform plot figure from the mp3 file."""
-  audio: seg = seg.from_mp3(audio_path)
+def generate_waveform(audio: seg, y_max: float = None) -> (int, plt.Figure):
+  """Generate a waveform plot figure from the mp3 file."""  
   audio_array = np.frombuffer(audio.raw_data, dtype=np.int16)
   frame_rate = audio.frame_rate        
   num_samples = len(audio_array)
@@ -93,8 +112,21 @@ def generate_waveform(audio_path: str) -> plt.Figure:
   fig, ax = plt.subplots()
   plt.gca().axis("off")       
   ax.plot(time_axis, audio_array)
+  
+  if y_max:
+    ax.set_ylim(-y_max, y_max)
+  _, max_y = ax.get_ylim()
   fig.set_figheight(2)
-  return fig
+  
+  return max_y, fig
+
+def generate_waveform_from_file(audio_file: str) -> (int, plt.Figure):
+  audio: seg = seg.from_mp3(audio_file)
+  return generate_waveform(audio)
+
+def generate_waveform_from_bytes(audio_bytes: bytes, y_max: float) -> (int, plt.Figure):
+  audio: seg = seg.from_wav(io.BytesIO(audio_bytes))
+  return generate_waveform(audio, y_max)
 
 def join_audio(line_indices: list[int], join_gap: int) -> None:
   """Join audio files found in the audio folder together with a gap in between."""
@@ -147,18 +179,86 @@ def segment_to_bytes(segment: seg) -> bytes:
   audio_bytes = buffer.getvalue()
   return audio_bytes 
 
+def apply_soundboard(audio: seg, soundboard: Soundboard) -> seg:
+  """Apply the soundboard to the audio."""
+  pedals = []
+  if soundboard.distortion_db != 0:
+    pedals.append(Distortion(
+      drive_db=soundboard.distortion_db
+    ))  
+  if soundboard.chorus_rate_hz != 0:
+    pedals.append(Chorus(
+      rate_hz=soundboard.chorus_rate_hz, 
+      depth=soundboard.chorus_depth, 
+      centre_delay_ms=soundboard.chorus_centre_delay, 
+      feedback=soundboard.chorus_feedback
+    ))
+  if soundboard.reverb_room_size != 0:
+    pedals.append(Reverb(
+      room_size=soundboard.reverb_room_size, 
+      damping=soundboard.reverb_damping,
+      wet_level=soundboard.reverb_web_level,
+      dry_level=soundboard.reverb_dry_level
+    ))
+  if soundboard.noise_gate_threshold_db != 0:
+    pedals.append(NoiseGate(
+      threshold_db=soundboard.noise_gate_threshold_db, 
+      ratio=soundboard.noise_gate_ratio
+    ))
+  if soundboard.compressor_threshold_db != 0:
+    pedals.append(Compressor(
+      threshold_db=soundboard.compressor_threshold_db, 
+      ratio=soundboard.compressor_ratio)
+  )    
+  if len(pedals) == 0:
+    return audio
+  applied_pedals = [pedal.__class__.__name__ for pedal in pedals]
+  log(f"Applying pedals: {applied_pedals}")
+  
+  temp_input_filepath = f"./session/{st.session_state.session_id}/temp/in.wav"
+  temp_output_filepath = f"./session/{st.session_state.session_id}/temp/out.wav"
+  os.makedirs(os.path.dirname(temp_input_filepath), exist_ok=True)
+  os.makedirs(os.path.dirname(temp_output_filepath), exist_ok=True)
+  
+  audio.export(temp_input_filepath, format="wav")
+  samplerate = 44100.0
+  with AudioFile(temp_input_filepath).resampled_to(samplerate) as f:
+    temp_in = f.read(f.frames)
+    
+  pedalboard = Pedalboard(pedals)  
+  samples = pedalboard(temp_in, samplerate)
+  with AudioFile(
+    temp_output_filepath, 
+    "w", 
+    samplerate, 
+    samples.shape[0]
+  ) as f:
+    f.write(samples)
+  new_audio = seg.from_wav(temp_output_filepath)
+  os.remove(temp_input_filepath)
+  os.remove(temp_output_filepath)
+  return new_audio
+
 def edit_audio(
   speech_path: str, 
   volume: int = None, 
   effect_path: str = None,
   start_effect: float = None,
   effect_volume: int = None,
-  effect_repeat: int = None
+  effect_repeat: int = None,
+  effect_fade_out: int = None,
+  soundboard: Soundboard = None
 ) -> (seg, seg):
   """Edit the audio file by changing the volume."""
   audio: seg = seg.from_mp3(speech_path)
+  # basic settings
   if volume:
     audio = audio + volume
+  
+  # soundboard
+  audio = apply_soundboard(audio, soundboard)
+    
+  # effects
   effect = None
   if effect_path:
     effect: seg = seg.from_wav(effect_path)
@@ -173,12 +273,16 @@ def edit_audio(
     audio_duration = audio.duration_seconds
     effect_duration = effect.duration_seconds
     effect_total_duration = effect_duration + start_effect
+    default_effect_fade_out = effect_fade_out if effect_fade_out is not None and effect_fade_out > 0 else 1000
+
     if effect_total_duration > audio_duration:
-      log("fading out effect")
+      log(f"fading out effect {default_effect_fade_out}")
       effect_excess = effect_total_duration - audio_duration
       log(f"effect excess: {effect_excess}")
       effect = effect[:int((effect_duration - effect_excess) * 1000)]
-      effect = effect.fade_out(1000)
+      effect = effect.fade_out(default_effect_fade_out)
+    elif effect_fade_out:
+      effect = effect.fade_out(effect_fade_out)
     
     audio = audio.overlay(effect, position=start_effect * 1000)
   return effect, audio
@@ -189,7 +293,9 @@ def preview_audio(
   effect_path: str = None,
   start_effect: float = None,
   effect_volume: int = None,
-  effect_repeat: int = None
+  effect_repeat: int = None,
+  effect_fade_out: int = None,
+  soundboard: Soundboard = None
 ) -> (bytes, bytes):
   """Preview the audio file after editing."""
   effect, audio = edit_audio(
@@ -198,7 +304,9 @@ def preview_audio(
     effect_path, 
     start_effect,
     effect_volume,
-    effect_repeat
+    effect_repeat,
+    effect_fade_out,
+    soundboard
   )
   return segment_to_bytes(effect), segment_to_bytes(audio)
 
@@ -218,6 +326,11 @@ def get_audio_duration(filename: str) -> float:
   """Get the duration of the speech in seconds."""
   audio: seg = seg.from_mp3(filename)
   return audio.duration_seconds
+
+def get_audio_max_decibels(filename: str) -> (int, int):
+  """Get the max volume of the audio."""
+  audio: seg = seg.from_mp3(filename)
+  return audio.max_dBFS
 
 def get_effect_path(name: str) -> str:
   """Get the effect path from the effect name."""
