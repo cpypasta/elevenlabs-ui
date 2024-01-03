@@ -99,8 +99,9 @@ def create_saved_dialogues(voices: list[Voice]):
           st.session_state["imported_file"] = uploaded_dialogue.file_id
           import_name = uploaded_dialogue.name.replace("_", " ")
           
-          if uploaded_dialogue.type in ["plain/txt", "application/json"]:    
-            if uploaded_dialogue.type == "plain/txt":
+          log(uploaded_dialogue.type)
+          if uploaded_dialogue.type in ["text/plain", "application/json"]:    
+            if uploaded_dialogue.type == "text/plain":
               save_imported_dialogue(bytes_data, voices, uploaded_dialogue.file_id, import_name)
             else:      
               import_path = f"./session/{st.session_state.session_id}/saves/{import_name}"
