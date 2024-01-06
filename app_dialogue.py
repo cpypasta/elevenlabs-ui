@@ -18,7 +18,7 @@ def show_final_audio() -> bool:
     
 
 if __name__ == "__main__":
-  st.set_page_config(layout="wide")
+  st.set_page_config(layout="wide", page_title="ElevenLabs Dialogue", page_icon="🎧")
   
   if "session_id" not in st.session_state:
     st.session_state["session_id"] = str(uuid.uuid4())  
