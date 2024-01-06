@@ -12,6 +12,7 @@ class SidebarData:
   model_id: str
   voices: list[Voice]
   voice_names: list[str]
+  enable_audio_editing: bool
   stability: float
   simarlity_boost: float
   style: float
@@ -102,6 +103,8 @@ def create_sidebar() -> SidebarData:
         if model_name:
           model_index = model_names.index(model_name)
           model_id = model_ids[model_index]   
+        
+        edit_audio = st.toggle("Enable Audio Editing", value=False)
                                   
         stability = st.slider(
           "Stability", 
@@ -131,7 +134,7 @@ def create_sidebar() -> SidebarData:
           step=10,
           value=200,
           help="The gap between spoken lines in milliseconds."
-        )
+        )        
       
       with st.expander("Voice Explorer"):
         el_voices = el_audio.get_voices()
@@ -167,13 +170,13 @@ def create_sidebar() -> SidebarData:
       clear_dialogue = st.button("Clear Dialogue", help=":warning: Clear everything and start over. :warning:", use_container_width=True)
       if clear_dialogue:
         streamlit_js_eval(js_expressions="parent.window.location.reload()")
-      
-      
+            
       return SidebarData(
         el_key=el_key,
         model_id=model_id,
         voices=el_voices,
         voice_names=el_voice_names,
+        enable_audio_editing=edit_audio,
         stability=stability,
         simarlity_boost=simarlity_boost,
         style=style,
@@ -189,6 +192,7 @@ def create_sidebar() -> SidebarData:
         model_id="",
         voices=[],
         voice_names=[],
+        enable_audio_editing=False,
         stability=0.35,
         simarlity_boost=0.80,
         style=0.0,

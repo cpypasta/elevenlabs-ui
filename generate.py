@@ -49,31 +49,29 @@ def generate_dialogue(system_prompt: str, input_prompt: str, sidebar: SidebarDat
     "temperature": sidebar.openai_temp,
     "max_tokens": sidebar.openai_max_tokens,
   }
-  log(f"chat options: {chat_options}")
   
   response = client.chat.completions.create(
     **chat_options,
     messages=messages
   )
-  # new_dialogue = '{ "characters": ["Brian"], "dialogue": [{"Speaker": "Brian", "Line": 1, "Text": "Hello, how are you?"}] }'
   new_dialogue = response.choices[0].message.content
   return new_dialogue
 
 def load_dialogue_system_prompt() -> str:
   """Load the dialogue system prompt from the file."""
-  with open("openai_dialogue_system_prompt.txt", "r") as f:
+  with open("prompts/openai_dialogue_system_prompt.txt", "r") as f:
     system_prompt = f.read()
     return system_prompt
   
 def load_continue_dialogue_system_prompt() -> str:
   """Load the continue dialogue system prompt from the file."""
-  with open("openai_continue_system_prompt.txt", "r") as f:
+  with open("prompts/openai_continue_system_prompt.txt", "r") as f:
     system_prompt = f.read()
     return system_prompt
     
 def load_plot_system_prompt() -> str:
   """Load the plot system prompt from the file."""
-  with open("openai_plot_system_prompt.txt", "r") as f:
+  with open("prompts/openai_plot_system_prompt.txt", "r") as f:
     system_prompt = f.read()
     return system_prompt
 
@@ -120,7 +118,7 @@ def create_continue_dialogue(sidebar: SidebarData, characters: list[Character], 
         character_found = next((c for c in characters if c.name == line["Speaker"]), None)
         if character_found:
           lines.append({ "Speaker": line["Speaker"], "Text": line["Text"] })
-      log(f"lines produced: {len(lines)}")
+      log(f"continued lines produced: {len(lines)}")
       result = pd.DataFrame(lines, columns=["Speaker", "Text"])
       return result
     except Exception as e:

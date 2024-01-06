@@ -95,18 +95,16 @@ if __name__ == "__main__":
         del st.session_state["generated_dialogue"]
         
     if generated_dialogue is not None: 
-      log("use just created generated dialogue")     
+      log("using created generated dialogue")     
       st.session_state["generated_dialogue"] = generated_dialogue
       dialogue_df = generated_dialogue
     elif "generated_dialogue" in st.session_state:
-      log("using cached generated dialogue") 
       dialogue_df = st.session_state["generated_dialogue"]
     elif saves.selected_save_name:
       log("using loaded dialogue") 
       dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
       dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
     else:
-      log("creating new empty dialogue") 
       dialogue_df = pd.DataFrame([], columns=["Speaker", "Text"])
     
     dialogue_table = st.data_editor(
@@ -228,6 +226,7 @@ if __name__ == "__main__":
             if os.path.exists(audio_file):     
               with open(audio_file, "rb") as audio:  
                 st.audio(audio)
+                pass
               audio_file_found = True
             else:
               st.markdown("Audio file not found. Please click the `Redo` button.")  
@@ -237,11 +236,21 @@ if __name__ == "__main__":
             redo_btn = st.button("Redo", key=redo_key)
           if redo_btn:
             with st.spinner("Generating audio..."):
-              log(f"regenerating audio for {redo_key} for {line.character.name} with {line.character.voice}")
               el_audio.generate_and_save(line.text, line.character.voice_id, line.line, sidebar)
             st.rerun()
-          if audio_file_found:
-            with st.expander("Edit Audio"):
+            
+          # AUDIO EDITING
+          if audio_file_found and sidebar.enable_audio_editing:
+            edit_audio_line_key = f"editing_audio_line_{line.line}"                                 
+            
+            if edit_audio_line_key not in st.session_state:
+              st.session_state[edit_audio_line_key] = False
+            edit_dialogue_line = st.button("Edit Audio", key=f"audio_edit_btn_{line.line}", use_container_width=True)
+            if edit_dialogue_line:
+              st.session_state[edit_audio_line_key] = not st.session_state[edit_audio_line_key] 
+                
+            should_show_audio_edit = st.session_state[edit_audio_line_key]
+            if should_show_audio_edit:               
               basic_tab, soundboard_tab, special_tab,  = st.tabs(["Basic", "Soundboard", "Special Effect"])
               with basic_tab:
                 st.markdown("### 🔊 Basic Settings")
@@ -265,7 +274,6 @@ if __name__ == "__main__":
                 ])
                 with compressor_tab:
                   st.markdown("A compressor controls the dynamic range of an audio signal. In other words, it reduces loud volumes by \"compressing\" the audio range.")
-                  st.markdown(f"Loudest Volume (decibel full scale): {round(el_audio.get_audio_max_decibels(audio_file), 2)} dBFS")
                   compressor_threshold_db = st.slider(
                     "Threshold (dB)",
                     -20.0, 0.0, 0.0, 0.5,
@@ -314,7 +322,6 @@ if __name__ == "__main__":
                   )                    
                 with noise_gate_tab:
                   st.markdown("A noise gate removes unwanted noise from the audio, often background noise. It is similar to the compressor, but a noise gate cuts off audio above a threshold instead of compressing it.")
-                  st.markdown(f"Loudest Volume (decibel full scale): {round(el_audio.get_audio_max_decibels(audio_file), 2)} dBFS")                  
                   noise_gate_threshold_db = st.slider(
                     "Threshold (dB)",
                     -20.0, 0.0, 0.0, 0.5,
@@ -469,7 +476,7 @@ if __name__ == "__main__":
                   st.markdown("<p style='font-size:14px'>Updated</p>", unsafe_allow_html=True)
                   _, plot = el_audio.generate_waveform_from_bytes(preview_audio, y_max)
                   st.pyplot(plot) 
-                                   
+                                  
               apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
               if apply_edits:
                 _, new_line_audio = el_audio.edit_audio(
@@ -486,6 +493,8 @@ if __name__ == "__main__":
                 log(f"saving audio {audio_file}")
                 st.rerun()
         
+          st.markdown("---")
+          
       # join final audio
       if "audio_files" in st.session_state:
         join_dialogue = st.button("Join Dialogue", use_container_width=True)
@@ -518,8 +527,6 @@ if __name__ == "__main__":
           with background_volume:
             lower_db = st.slider("Lower Background Volume (dB)", 0, 15, 0, 1, help="lowers the background audio by specified decibels")
 
-          log(f"Background settings: Fade In:{fade_in}, Fade Out:{fade_out}, Lower Db:{lower_db}")
-
           add_background_btn = st.button("Add Background", use_container_width=True)
           if add_background_btn and background_name:
             with st.spinner("Adding background audio..."):
@@ -535,4 +542,12 @@ if __name__ == "__main__":
         st.audio(dialogue_path)
         _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
         st.pyplot(fig)
+        with open(dialogue_path, "rb") as mp3_audio:
+          st.download_button(
+            label="Download Final Dialogue",
+            data=mp3_audio, 
+            file_name="dialogue.mp3", 
+            mime="audio/mp3",
+            use_container_width=True
+          )
     

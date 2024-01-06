@@ -45,15 +45,18 @@ def get_selected_plot(save_dialogue_data: SavedDialogueData) -> str:
 def save_imported_dialogue(data: bytes, voices: list[Voice], file_id: str, import_name: str) -> None:
   uploaded_string = data.decode("utf-8")
   dialogue_details = convert_dialogue_import_into_details(uploaded_string, voices)
-  data = json.dumps(dialogue_details, indent=2).encode("utf-8")
-  import_name = import_name.replace(".txt", ".json")
-  
-  import_path = f"./session/{st.session_state.session_id}/saves/{import_name}"
-  os.makedirs(os.path.dirname(import_path), exist_ok=True)                            
-  with open(import_path, "wb") as f:
-    f.write(data)
-    st.session_state["imported_file"] = file_id
-    st.toast("Dialogue has been uploaded. You will have to click refresh to see it.", icon="👍")  
+  if dialogue_details:
+    data = json.dumps(dialogue_details, indent=2)
+    import_name = import_name.replace(".txt", ".json")
+    
+    import_path = f"./session/{st.session_state.session_id}/saves/{import_name}"
+    os.makedirs(os.path.dirname(import_path), exist_ok=True)                            
+    with open(import_path, "w") as f:
+      f.write(data)
+      st.session_state["imported_file"] = file_id
+      st.toast("Dialogue has been uploaded. You will have to click refresh to see it.", icon="👍")  
+  else:
+    st.toast("Invalid dialogue import. Please check your file for the correct format.", icon="👎")
   
 def create_saved_dialogues(voices: list[Voice]):
   """Create the saved dialogues section."""
@@ -99,7 +102,6 @@ def create_saved_dialogues(voices: list[Voice]):
           st.session_state["imported_file"] = uploaded_dialogue.file_id
           import_name = uploaded_dialogue.name.replace("_", " ")
           
-          log(uploaded_dialogue.type)
           if uploaded_dialogue.type in ["text/plain", "application/json"]:    
             if uploaded_dialogue.type == "text/plain":
               save_imported_dialogue(bytes_data, voices, uploaded_dialogue.file_id, import_name)
@@ -150,7 +152,6 @@ def create_saved_dialogues(voices: list[Voice]):
         else:
           download_dialogue_path = f"./session/{st.session_state.session_id}/project/project.zip"
         if os.path.exists(download_dialogue_path):
-          log(f"Download file: {download_dialogue_path}")
           download_dialogue_name = st.text_input(
             "download filename", 
             label_visibility="collapsed", 

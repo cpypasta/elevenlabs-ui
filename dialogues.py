@@ -1,4 +1,4 @@
-import json, os
+import json, os, re
 import pandas as pd
 import streamlit as st
 from pathlib import Path
@@ -105,7 +105,11 @@ def load_dialogues_with_names() -> (list[str], dict):
 
 def convert_dialogue_import_into_details(data: str, voices: list[Voice]) -> dict:
   """Convert the imported dialogue into a common format."""
-  characters_input, plot, dialogue_input = data.split("\n\n")
+  import_parts = re.split(r'\n\n|\r\n\r\n', data)
+  if len(import_parts) == 3:
+    characters_input, plot, dialogue_input = import_parts
+  else:    
+    return None
 
   plot = plot.split("\n")
   plot = plot[1] if len(plot) > 1 else "" 
@@ -184,10 +188,6 @@ def character_change(character_changes: dict) -> bool:
   added = any(["Name" in c for c in character_changes["added_rows"]])
   deleted_rows = len(character_changes["deleted_rows"]) > 0
   is_change = edited or added or deleted_rows
-  if is_change:
-    log("character change")
-    if added:
-      log(f"\tadded characters: {character_changes['added_rows']}")
   return is_change
 
 def added_or_removed_characters(character_changes: dict) -> bool:

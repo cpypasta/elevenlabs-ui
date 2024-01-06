@@ -122,12 +122,16 @@ def generate_waveform(audio: seg, y_max: float = None) -> (int, plt.Figure):
   return max_y, fig
 
 def generate_waveform_from_file(audio_file: str) -> (int, plt.Figure):
-  audio: seg = seg.from_mp3(audio_file)
-  return generate_waveform(audio)
+  status = st.spinner("Generating waveform...")
+  with status:
+    audio: seg = seg.from_mp3(audio_file)
+    result = generate_waveform(audio)
+  return result
 
 def generate_waveform_from_bytes(audio_bytes: bytes, y_max: float) -> (int, plt.Figure):
-  audio: seg = seg.from_wav(io.BytesIO(audio_bytes))
-  return generate_waveform(audio, y_max)
+  with st.spinner("Generating waveform..."):
+    audio: seg = seg.from_wav(io.BytesIO(audio_bytes))
+    return generate_waveform(audio, y_max)
 
 def join_audio(line_indices: list[int], join_gap: int) -> None:
   """Join audio files found in the audio folder together with a gap in between."""
@@ -266,10 +270,7 @@ def edit_audio(
     if effect_volume:
       effect = effect + effect_volume
     if effect_repeat:
-      log(f"repeating effect: {effect_repeat}")
-      log("duration before repeat: " + str(effect.duration_seconds))
       effect = effect * effect_repeat
-      log("duration after repeat: " + str(effect.duration_seconds))
     
     audio_duration = audio.duration_seconds
     effect_duration = effect.duration_seconds
@@ -277,9 +278,7 @@ def edit_audio(
     default_effect_fade_out = effect_fade_out if effect_fade_out is not None and effect_fade_out > 0 else 1000
 
     if effect_total_duration > audio_duration:
-      log(f"fading out effect {default_effect_fade_out}")
       effect_excess = effect_total_duration - audio_duration
-      log(f"effect excess: {effect_excess}")
       effect = effect[:int((effect_duration - effect_excess) * 1000)]
       effect = effect.fade_out(default_effect_fade_out)
     elif effect_fade_out:
@@ -315,6 +314,7 @@ def get_effects() -> list[str]:
   """Get the effects from the effects folder."""
   return glob.glob("./effects/*.wav")
 
+@st.cache_data
 def get_effect_names() -> list[str]:
   """Get the effect names from the effects folder."""
   names = []
