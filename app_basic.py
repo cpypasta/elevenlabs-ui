@@ -16,6 +16,8 @@ def get_models() -> list[el.Model]:
   return list(el.Models.from_api())
 
 if __name__ == "__main__":
+  st.set_page_config(page_title="ElevenLabs Speech", page_icon="🎧")
+  
   st.title("🎧 ElevenLabs Speech")
   
   with st.sidebar:
