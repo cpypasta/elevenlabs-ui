@@ -9,6 +9,7 @@ from utils import log
 from pedalboard import Pedalboard, Compressor, Chorus, Reverb, Distortion, NoiseGate
 from pedalboard.io import AudioFile
 from dataclasses import dataclass
+from pathlib import Path
 
 @dataclass
 class Soundboard:
@@ -169,7 +170,7 @@ def get_background_audio() -> list[str]:
 
 def get_background_file_from_name(name: str) -> str:
   """Return the background audio file from the name."""
-  return f"./backgrounds/{name.replace(' ', '_')}.mp3"
+  return str(Path(f"./backgrounds/{name.replace(' ', '_')}.mp3"))
  
 def segment_to_bytes(segment: seg) -> bytes:
   if segment is None:
@@ -338,7 +339,7 @@ def get_effect_path(name: str) -> str:
 
 def apply_background_audio(background_name: str, fade_in: bool, fade_out: bool, lower_db: int) -> None:
   """Apply the background audio to the dialogue audio."""
-  background_files = glob.glob("./backgrounds/*.mp3")
+  background_files = [str(x) for x in list(Path(".").glob("backgrounds/*.mp3"))]
   background_index = background_files.index(get_background_file_from_name(background_name))
   background_file = background_files[background_index]
   dialogue_file = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"

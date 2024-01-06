@@ -9,3 +9,5 @@ audio
 .DS_Store
 export
 session
+venv
+__pycache__
