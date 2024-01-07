@@ -78,8 +78,9 @@ def get_models(openai_api_key: str) -> list[str]:
 
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
-  with st.sidebar:
+  with st.sidebar:    
     if "el_key" in st.session_state:
+      set_api_key(st.session_state.el_key)
       usage, reset = get_usage_percent()
       key_label = f"ElevenLabs API Key ({usage:.2f}%, {reset})"
     else:
