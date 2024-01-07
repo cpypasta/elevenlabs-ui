@@ -1,6 +1,6 @@
-import os, el_audio, utils
+import os, el_audio, utils, datetime
 import streamlit as st
-from elevenlabs import Voice, set_api_key
+from elevenlabs import Voice, User, set_api_key
 from dataclasses import dataclass
 from utils import log
 from openai import OpenAI
@@ -13,6 +13,7 @@ class SidebarData:
   voices: list[Voice]
   voice_names: list[str]
   enable_audio_editing: bool
+  enable_normalization: bool
   stability: float
   simarlity_boost: float
   style: float
@@ -21,6 +22,14 @@ class SidebarData:
   openai_model: str
   openai_temp: float
   openai_max_tokens: int
+
+def get_usage_percent() -> (int, str):
+  """Get the character usage percent from the Eleven Labs API."""
+  user_info = User.from_api()
+  percent = user_info.subscription.character_count / user_info.subscription.character_limit * 100
+  resets = user_info.subscription.next_character_count_reset_unix
+  resets = datetime.datetime.fromtimestamp(resets).strftime("%m/%d")
+  return percent, resets
 
 def get_voice_by_name(name: str, voices: list[Voice]) -> Voice:
   """Get a voice by the voice name."""
@@ -70,7 +79,12 @@ def get_models(openai_api_key: str) -> list[str]:
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
   with st.sidebar:
-    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password")        
+    if "el_key" in st.session_state:
+      usage, reset = get_usage_percent()
+      key_label = f"ElevenLabs API Key ({usage:.2f}%, {reset})"
+    else:
+      key_label = "ElevenLabs API Key"
+    el_key = st.text_input(key_label, os.getenv("ELEVENLABS_API_KEY"), type="password", key="el_key")        
     
     if el_key:
       set_api_key(el_key)          
@@ -104,7 +118,16 @@ def create_sidebar() -> SidebarData:
           model_index = model_names.index(model_name)
           model_id = model_ids[model_index]   
         
-        edit_audio = st.toggle("Enable Audio Editing", value=False)
+        edit_audio = st.toggle(
+          "Enable Audio Editing", 
+          value=False,
+          help="Enable audio editing for each dialogue line. This is disabled by default to increase performance."
+        )
+        normalize_audiobook = st.toggle(
+          "Enable Normalization", 
+          value=False, 
+          help="Adjusts the final dialogue to meet the audiobook standards. The standard states that the audio should have a celing of -3dB and a range of -18dB to -23dB."
+        )
                                   
         stability = st.slider(
           "Stability", 
@@ -177,6 +200,7 @@ def create_sidebar() -> SidebarData:
         voices=el_voices,
         voice_names=el_voice_names,
         enable_audio_editing=edit_audio,
+        enable_normalization=normalize_audiobook,
         stability=stability,
         simarlity_boost=simarlity_boost,
         style=style,
@@ -193,6 +217,7 @@ def create_sidebar() -> SidebarData:
         voices=[],
         voice_names=[],
         enable_audio_editing=False,
+        enable_normalization=False,
         stability=0.35,
         simarlity_boost=0.80,
         style=0.0,

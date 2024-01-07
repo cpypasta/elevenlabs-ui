@@ -265,10 +265,11 @@ if __name__ == "__main__":
                 
               with soundboard_tab:
                 st.markdown("### 👂💫 Soundboard")
-                compressor_tab, chorus_tab, distortion_tab, noise_gate_tab, reverb_tab = st.tabs([
+                compressor_tab, chorus_tab, distortion_tab, limiter_tab, noise_gate_tab, reverb_tab = st.tabs([
                   "Compressor", 
                   "Chorus",
                   "Distortion",
+                  "Limiter",
                   "Noise Gate",
                   "Reverb"
                 ])
@@ -316,10 +317,18 @@ if __name__ == "__main__":
                   st.markdown("A distortion effect adds a \"gritty\" sound to the audio.")
                   distortion_db = st.slider(
                     "Drive (Db)",
-                    0.0, 50.0, 0.0, 1.0,
+                    0.0, 50.0, 0.0, 0.5,
                     key=f"distortion_db_{line.line}",
                     help="The amount of distortion."
                   )                    
+                with limiter_tab:
+                  st.markdown("A limiter is similar to a compressor, but it is a more extreme form of compression. It will compress the dynamic range by making the quiet parts louder and and the loud parts quieter. This will often be used in combination with the compressor.")
+                  limiter_threshold_db = st.slider(
+                    "Threshold (dB)",
+                    -10.0, 0.0, 0.0, 0.5,
+                    key=f"limiter_threshold_db_{line.line}",
+                    help="The threshold above which the limiter is applied."
+                  )
                 with noise_gate_tab:
                   st.markdown("A noise gate removes unwanted noise from the audio, often background noise. It is similar to the compressor, but a noise gate cuts off audio above a threshold instead of compressing it.")
                   noise_gate_threshold_db = st.slider(
@@ -375,7 +384,8 @@ if __name__ == "__main__":
                   reverb_dry_level,
                   distortion_db,
                   noise_gate_threshold_db,
-                  noise_gate_ratio
+                  noise_gate_ratio,
+                  limiter_threshold_db
                 )
                               
               with special_tab:
@@ -445,7 +455,7 @@ if __name__ == "__main__":
                 use_container_width=True
               )
               if preview_line:
-                effect_audio, preview_audio = el_audio.preview_audio(
+                effect_audio, preview_audio, pedals = el_audio.preview_audio(
                   audio_file, 
                   line_volume, 
                   effect_path,
@@ -456,13 +466,20 @@ if __name__ == "__main__":
                   soundboard
                 )                          
                 
+                pedals = [f'`{p}`' for p in pedals]
+                adjustments = pedals
+                if line_volume != 0:
+                  adjustments.append(f"`Volume`")
+                if effect_name:
+                  adjustments.append(f"`{effect_name}`")
+                st.markdown(f"Adjustments: {' '.join(sorted(adjustments))}")  
                 if effect_name:
                   col1, col2 = st.columns([1, 1])
                   with col1:
                     st.markdown("<p style='font-size:14px'>Special Effect Preview</p>", unsafe_allow_html=True)
                     st.audio(effect_audio, format="audio/wav")
                   with col2:
-                    st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)              
+                    st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)                                
                     st.audio(preview_audio, format="audio/wav")
                 else:
                   st.audio(preview_audio, format="audio/wav")
@@ -479,7 +496,7 @@ if __name__ == "__main__":
                                   
               apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
               if apply_edits:
-                _, new_line_audio = el_audio.edit_audio(
+                _, new_line_audio, _ = el_audio.edit_audio(
                   audio_file, 
                   line_volume, 
                   effect_path,
@@ -500,7 +517,7 @@ if __name__ == "__main__":
         join_dialogue = st.button("Join Dialogue", use_container_width=True)
         line_indices = [d.line for d in dialogue]
         if join_dialogue:          
-          el_audio.join_audio(line_indices, sidebar.join_gap)
+          el_audio.join_audio(line_indices, sidebar.join_gap, sidebar.enable_normalization)
           st.session_state["final_audio"] = True
       
       # show final audio
@@ -525,12 +542,12 @@ if __name__ == "__main__":
             fade_in = st.toggle("Fade In", value=True)
             fade_out = st.toggle("Fade Out", value=True)
           with background_volume:
-            lower_db = st.slider("Lower Background Volume (dB)", 0, 15, 0, 1, help="lowers the background audio by specified decibels")
+            lower_db = st.slider("Lower Background Volume (dB)", 0, 25, 0, 1, help="lowers the background audio by specified decibels")
 
           add_background_btn = st.button("Add Background", use_container_width=True)
           if add_background_btn and background_name:
             with st.spinner("Adding background audio..."):
-              el_audio.apply_background_audio(background_name, fade_in, fade_out, lower_db)
+              el_audio.apply_background_audio(background_name, fade_in, fade_out, lower_db, sidebar.enable_normalization)
               st.toast("Background audio has been added.", icon="👍")
         
         if "background_added" in st.session_state:
@@ -538,10 +555,32 @@ if __name__ == "__main__":
           dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue_background.mp3"
         else:
           dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
-                  
-        st.audio(dialogue_path)
-        _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
-        st.pyplot(fig)
+        
+        org_path = f"./session/{st.session_state.session_id}/audio/dialogue_org.mp3"
+        if sidebar.enable_normalization and os.path.exists(org_path):                    
+          y_max, org_plot = el_audio.generate_waveform_from_file(org_path)
+          
+          if "background_added" in st.session_state:
+            normalized_path = f"./session/{st.session_state.session_id}/audio/dialogue_background.mp3"
+          else:
+            normalized_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
+            
+          _, normalized_plot = el_audio.generate_waveform_from_file(normalized_path, y_max)
+          
+          col1, col2 = st.columns([1, 1])
+          with col1:
+            st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
+            st.audio(org_path)    
+            st.pyplot(org_plot)
+          with col2:
+            st.markdown("<p style='font-size:14px'>Normalized</p>", unsafe_allow_html=True)
+            st.audio(normalized_path)                      
+            st.pyplot(normalized_plot)
+        else:                  
+          st.audio(dialogue_path)
+          _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
+          st.pyplot(fig)
+          
         with open(dialogue_path, "rb") as mp3_audio:
           st.download_button(
             label="Download Final Dialogue",
