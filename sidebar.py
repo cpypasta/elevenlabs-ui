@@ -193,8 +193,8 @@ def create_sidebar() -> SidebarData:
       with st.expander("Usage"):
         usage = get_usage_percent()
         st.markdown(f"**Character Percent:** {usage['usage']:.1f}%")
-        st.markdown(f"**Character Count:** {usage['count']}")
-        st.markdown(f"**Character Limit:** {usage['limit']}")
+        st.markdown(f"**Character Count:** {usage['count']:,}")
+        st.markdown(f"**Character Limit:** {usage['limit']:,}")
         st.markdown(f"**Reset:** {usage['reset']}")
       
       clear_dialogue = st.button("Clear Dialogue", help=":warning: Clear everything and start over. :warning:", use_container_width=True)
