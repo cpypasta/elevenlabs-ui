@@ -23,13 +23,18 @@ class SidebarData:
   openai_temp: float
   openai_max_tokens: int
 
-def get_usage_percent() -> (int, str):
+def get_usage_percent() -> dict:
   """Get the character usage percent from the Eleven Labs API."""
   user_info = User.from_api()
   percent = user_info.subscription.character_count / user_info.subscription.character_limit * 100
   resets = user_info.subscription.next_character_count_reset_unix
   resets = datetime.datetime.fromtimestamp(resets).strftime("%m/%d")
-  return percent, resets
+  return {
+    "usage": percent,
+    "reset": resets,
+    "count": user_info.subscription.character_count,
+    "limit": user_info.subscription.character_limit
+  }
 
 def get_voice_by_name(name: str, voices: list[Voice]) -> Voice:
   """Get a voice by the voice name."""
@@ -186,9 +191,11 @@ def create_sidebar() -> SidebarData:
           st.markdown(f"_Voice ID: {el_voice_id}_") 
       
       with st.expander("Usage"):
-        usage, reset = get_usage_percent()
-        st.markdown(f"**Character Percent:** {usage:.2f}%")
-        st.markdown(f"**Reset:** {reset}")
+        usage = get_usage_percent()
+        st.markdown(f"**Character Percent:** {usage['usage']:.1f}%")
+        st.markdown(f"**Character Count:** {usage['count']}")
+        st.markdown(f"**Character Limit:** {usage['limit']}")
+        st.markdown(f"**Reset:** {usage['reset']}")
       
       clear_dialogue = st.button("Clear Dialogue", help=":warning: Clear everything and start over. :warning:", use_container_width=True)
       if clear_dialogue:
