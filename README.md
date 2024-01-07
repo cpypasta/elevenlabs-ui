@@ -1,20 +1,5 @@
 # elevenlabs-ui
 
-## Tutorials
+A streamlit app that allows you create dialogues between characters using ElevenLabs. The tool also gives you the option to edit aspects of the audio and generate plots and dialogues using OpenAI (optional).
 
-1. Basics: 
-   1. characters (warning)
-   1. dialogues
-   1. audio (with redo)
-   1. explore voices   
-   1. finalizing dialogue
-1. Intermediate: 
-   1. save and load
-   1. dialogue options
-   1. edit line volume
-   1. add background audio.
-   1. export and import
-1. Advanced: 
-   1. continue with project audio
-   1. openai options; openai plot; continue dialogue with openai
-   1. advanced audio editing
+![image](https://github.com/rollerb/elevenlabs-ui/assets/2107385/c4e448d3-3db1-4bcc-88b4-8747229b2ce5)
