@@ -79,13 +79,7 @@ def get_models(openai_api_key: str) -> list[str]:
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
   with st.sidebar:    
-    if "el_key" in st.session_state:
-      set_api_key(st.session_state.el_key)
-      usage, reset = get_usage_percent()
-      key_label = f"ElevenLabs API Key ({usage:.2f}%, {reset})"
-    else:
-      key_label = "ElevenLabs API Key"
-    el_key = st.text_input(key_label, os.getenv("ELEVENLABS_API_KEY"), type="password", key="el_key")        
+    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password", key="el_key")        
     
     if el_key:
       set_api_key(el_key)          
@@ -190,6 +184,11 @@ def create_sidebar() -> SidebarData:
             st.audio(el_voice_details.preview_url, format="audio/mp3")
         
           st.markdown(f"_Voice ID: {el_voice_id}_") 
+      
+      with st.expander("Usage"):
+        usage, reset = get_usage_percent()
+        st.markdown(f"**Usage:** {usage:.2f}%")
+        st.markdown(f"**Reset:** {reset}")
       
       clear_dialogue = st.button("Clear Dialogue", help=":warning: Clear everything and start over. :warning:", use_container_width=True)
       if clear_dialogue:
