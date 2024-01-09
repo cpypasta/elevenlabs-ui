@@ -18,13 +18,13 @@ def show_final_audio() -> bool:
     
 
 if __name__ == "__main__":
-  st.set_page_config(layout="wide", page_title="ElevenLabs Dialogue", page_icon="🎧")
+  st.set_page_config(layout="wide", page_title="Diatribe", page_icon="🎧")
   
   if "session_id" not in st.session_state:
     st.session_state["session_id"] = str(uuid.uuid4())  
     log("session id: " + st.session_state.session_id)
   
-  st.title("🎧 ElevenLabs Dialogue")
+  st.title("🎧 Diatribe")
   
   sidebar = create_sidebar()
     
@@ -32,9 +32,10 @@ if __name__ == "__main__":
     saves = create_saved_dialogues(sidebar.voices)    
     
     st.header("Characters")
-    st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the `Voice Explorer` in the sidebar if you want to hear what a voice sounds like.")
-    with st.expander("**WARNING**: changing characters can clear the dialogue"):
-      st.info("Adding or removing characters and modifying names will clear or reset the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
+    if sidebar.enable_instructions:
+      st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the `Voice Explorer` in the sidebar if you want to hear what a voice sounds like.")
+      with st.expander("**WARNING**: changing characters can clear the dialogue"):
+        st.info("Adding or removing characters and modifying names will clear or reset the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
     
     if saves.selected_save_name:
       character_data = [c.to_dict() for c in get_selected_characters(saves)]
@@ -83,7 +84,8 @@ if __name__ == "__main__":
     character_names = [character.name for character in characters]
     
     st.header("Dialogue")
-    st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click `Generate Audio Dialogue` as often as you would like.")
+    if sidebar.enable_instructions:
+      st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click `Generate Audio Dialogue` as often as you would like.")
     
     generated_dialogue = create_dialogue_generation(sidebar, saves, characters)
 
@@ -95,13 +97,11 @@ if __name__ == "__main__":
         del st.session_state["generated_dialogue"]
         
     if generated_dialogue is not None: 
-      log("using created generated dialogue")     
       st.session_state["generated_dialogue"] = generated_dialogue
       dialogue_df = generated_dialogue
     elif "generated_dialogue" in st.session_state:
       dialogue_df = st.session_state["generated_dialogue"]
     elif saves.selected_save_name:
-      log("using loaded dialogue") 
       dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
       dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
     else:
@@ -151,7 +151,7 @@ if __name__ == "__main__":
       
       # continue generated dialogue
       if sidebar.openai_api_key and not dialogue_table.empty:
-        continue_btn = st.button("Cotinue Dialogue", use_container_width=True, help="This uses options set in `Dialogue Generation` to continue the dialogue.")
+        continue_btn = st.button("Continue Dialogue", use_container_width=True, help="This uses options set in `Dialogue Generation` to continue the dialogue.")
         if continue_btn:
           generated_dialogue = create_continue_dialogue(sidebar, characters, dialogue)     
           if generated_dialogue is not None: 
@@ -213,12 +213,13 @@ if __name__ == "__main__":
       if "audio_files" in st.session_state:   
         # display generated audio
         st.header("Audio Dialogue")
-        st.markdown("The dialogue text has now been coverted into audio. You can listen to the audio by clicking the play button. If you want to regenerate the audio, you can click the `Generate Audio Dialogue` button above. If you are happy with the audio, you can join the audio files together by clicking the `Join Dialogue` button below. You can also click the `Redo` button to regenerate the audio for a specific line.")
-        with st.expander("**WARNING**: deleting dialogue lines requires audio regeneration"):
-          st.info("If you delete dialogue lines, you will have to regenerate the audio by clicking the `Generate Audio Dialogue` button above. Adding or modifying dialogue lines will not require regeneration of all lines, but you will likely need to click the `Redo` button for the affected lines.")
+        if sidebar.enable_instructions:
+          st.markdown("The dialogue text has now been coverted into audio. You can listen to the audio by clicking the play button. If you want to regenerate the audio, you can click the `Generate Audio Dialogue` button above. If you are happy with the audio, you can join the audio files together by clicking the `Join Dialogue` button below. You can also click the `Redo` button to regenerate the audio for a specific line.")
+          with st.expander("**WARNING**: deleting dialogue lines requires audio regeneration"):
+            st.info("If you delete dialogue lines, you will have to regenerate the audio by clicking the `Generate Audio Dialogue` button above. Adding or modifying dialogue lines will not require regeneration of all lines, but you will likely need to click the `Redo` button for the affected lines.")
                     
         for i, line in enumerate(dialogue):
-          st.markdown(f"{i + 1}. **{line.character.name}**: \"{line.text}\"")
+          st.markdown(f"#### `{i + 1}.` **{line.character.name}**: \"{line.text}\"")
           
           col1, col2 = st.columns([9, 1])
           with col1:     
@@ -250,17 +251,65 @@ if __name__ == "__main__":
               st.session_state[edit_audio_line_key] = not st.session_state[edit_audio_line_key] 
                 
             should_show_audio_edit = st.session_state[edit_audio_line_key]
-            if should_show_audio_edit:               
+            if should_show_audio_edit:    
+              speech_duration = el_audio.get_audio_duration(audio_file)  
+              speech_duration_int = int(speech_duration * 1000)        
               basic_tab, soundboard_tab, special_tab,  = st.tabs(["Basic", "Soundboard", "Special Effect"])
+              
               with basic_tab:
                 st.markdown("### 🔊 Basic Settings")
-                line_volume = st.slider(
-                  "Adjust Speech Volume (dB)",
-                  -25, 
-                  25, 
-                  0, 
-                  1, 
-                  key=f"volume_{line.line}"
+                extend_tab, fade_tab, trim_tab, volume_tab = st.tabs(["Extend", "Fade", "Trim", "Volume"])
+                with extend_tab:
+                   extend_in_slider = st.slider(
+                      "Extend In (ms)",
+                      0,
+                      5000,
+                      0,
+                      key=f"extend_in_{line.line}",
+                      help="Allows you to extend the beginning of audio up to 5 seconds."
+                    )
+                   extend_out_slider = st.slider(
+                      "Extend Out (ms)",
+                      0,
+                      5000,
+                      0,
+                      key=f"extend_out_{line.line}",
+                      help="Allows you to extend the end of audio up to 5 seconds."
+                    )                   
+                with fade_tab:
+                  fade_slider = st.slider(
+                    "Fade (ms)",
+                    0,
+                    speech_duration_int,
+                    (0, speech_duration_int),
+                    key=f"fade_{line.line}",
+                    help="Allows you to provide a fade in and a fade out."
+                  )
+                with volume_tab:
+                  line_volume = st.slider(
+                    "Volume (dB)",
+                    -25, 
+                    25, 
+                    0, 
+                    1, 
+                    key=f"volume_{line.line}",
+                    help="A positive value will increase the volume and a negative value will decrease the volume."
+                  )
+                with trim_tab:
+                  trim_slider = st.slider(
+                    "Trim (ms)",
+                    0,
+                    speech_duration_int,
+                    (0, speech_duration_int),
+                    key=f"trim_{line.line}",
+                    help="Allows you to trim the audio from either the beginning or the end."
+                  )
+                basic = el_audio.Basic(
+                  speech_duration_int, 
+                  line_volume, 
+                  fade_slider, 
+                  trim_slider,
+                  (extend_in_slider, extend_out_slider)
                 )
                 
               with soundboard_tab:
@@ -390,19 +439,32 @@ if __name__ == "__main__":
                               
               with special_tab:
                 st.markdown("### 💥 Special Effect")
-                effect_name = st.selectbox(
-                  "Effects", 
-                  el_audio.get_effect_names(), 
-                  index=None, 
-                  label_visibility="collapsed", 
-                  placeholder="Select an effect",
-                  key=f"effect_{line.line}"
+
+                uploaded_special_effect = st.file_uploader(
+                  "Upload Special Effect",
+                  type=["mp3", "wav", "aiff"],
+                  key=f"upload_effect_{line.line}"
                 )
+                if uploaded_special_effect:
+                  audio_file = uploaded_special_effect.getvalue()
+                  el_audio.save_sound_effect(audio_file, uploaded_special_effect.name)
+                  st.toast("Special effect has been uploaded. Please click refresh to see it.", icon="👍")
+                  
+                col1, col2 = st.columns([8, 1])
+                with col1:
+                  effect_name = st.selectbox(
+                    "Effects", 
+                    el_audio.get_effect_names(), 
+                    index=None, 
+                    label_visibility="collapsed", 
+                    placeholder="Select an effect",
+                    key=f"effect_{line.line}"
+                  )
+                with col2:
+                  st.button("Refresh", use_container_width=True, key=f"refresh_effect_{line.line}")
                 if effect_name:
                   effect_path = el_audio.get_effect_path(effect_name)
-                  st.audio(effect_path)                
-                    
-                  speech_duration = el_audio.get_audio_duration(audio_file)    
+                  st.audio(effect_path)                   
                   
                   effect_volume_tab, effect_timing_tab = st.tabs(["Volume", "Timing"])
                   with effect_volume_tab:            
@@ -457,7 +519,7 @@ if __name__ == "__main__":
               if preview_line:
                 effect_audio, preview_audio, pedals = el_audio.preview_audio(
                   audio_file, 
-                  line_volume, 
+                  basic, 
                   effect_path,
                   effect_start,
                   effect_volume,
@@ -468,37 +530,39 @@ if __name__ == "__main__":
                 
                 pedals = [f'`{p}`' for p in pedals]
                 adjustments = pedals
-                if line_volume != 0:
-                  adjustments.append(f"`Volume`")
+                adjustments.extend(basic.adjustments())
                 if effect_name:
-                  adjustments.append(f"`{effect_name}`")
-                st.markdown(f"Adjustments: {' '.join(sorted(adjustments))}")  
-                if effect_name:
-                  col1, col2 = st.columns([1, 1])
-                  with col1:
-                    st.markdown("<p style='font-size:14px'>Special Effect Preview</p>", unsafe_allow_html=True)
-                    st.audio(effect_audio, format="audio/wav")
-                  with col2:
-                    st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)                                
+                  adjustments.append(f"`{effect_name.capitalize()}`")
+                if len(adjustments) > 0:
+                  st.markdown(f"Adjustments: {' '.join(sorted(adjustments))}")  
+                  if effect_name:
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                      st.markdown("<p style='font-size:14px'>Special Effect Preview</p>", unsafe_allow_html=True)
+                      st.audio(effect_audio, format="audio/wav")
+                    with col2:
+                      st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)                                
+                      st.audio(preview_audio, format="audio/wav")
+                  else:
                     st.audio(preview_audio, format="audio/wav")
-                else:
-                  st.audio(preview_audio, format="audio/wav")
                             
-                org_audio_waveform, new_audio_waveform = st.columns([1, 1])
-                with org_audio_waveform:
-                  st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
-                  y_max, plot = el_audio.generate_waveform_from_file(audio_file)
-                  st.pyplot(plot)                  
-                with new_audio_waveform:
-                  st.markdown("<p style='font-size:14px'>Updated</p>", unsafe_allow_html=True)
-                  _, plot = el_audio.generate_waveform_from_bytes(preview_audio, y_max)
-                  st.pyplot(plot) 
+                  org_audio_waveform, new_audio_waveform = st.columns([1, 1])
+                  with org_audio_waveform:
+                    st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
+                    y_max, plot = el_audio.generate_waveform_from_file(audio_file)
+                    st.pyplot(plot)                  
+                  with new_audio_waveform:
+                    st.markdown("<p style='font-size:14px'>Updated</p>", unsafe_allow_html=True)
+                    _, plot = el_audio.generate_waveform_from_bytes(preview_audio, y_max)
+                    st.pyplot(plot) 
+                else:
+                  st.toast("There are no audio edits selected.", icon="ℹ️")
                                   
               apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
               if apply_edits:
                 _, new_line_audio, _ = el_audio.edit_audio(
                   audio_file, 
-                  line_volume, 
+                  basic, 
                   effect_path,
                   effect_start,
                   effect_volume,
@@ -523,11 +587,13 @@ if __name__ == "__main__":
       # show final audio
       if show_final_audio():
         st.header("Final Dialogue")
-        st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
+        if sidebar.enable_instructions:
+          st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
                 
         with st.expander("Background Audio"):
           background_names = el_audio.get_background_audio()
-          st.markdown("You can add background audio to the final dialogue. If you want to remove the background audio, you will have to regenerate the final dialogue by clicking `Join Dialogue`.")
+          if sidebar.enable_instructions:
+            st.markdown("You can add background audio to the final dialogue. If you want to remove the background audio, you will have to regenerate the final dialogue by clicking `Join Dialogue`.")
           background_name = st.selectbox(
             "Background Audio", 
             background_names, 

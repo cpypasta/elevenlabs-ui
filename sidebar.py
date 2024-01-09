@@ -12,6 +12,7 @@ class SidebarData:
   model_id: str
   voices: list[Voice]
   voice_names: list[str]
+  enable_instructions: bool
   enable_audio_editing: bool
   enable_normalization: bool
   stability: float
@@ -89,22 +90,6 @@ def create_sidebar() -> SidebarData:
     if el_key:
       set_api_key(el_key)          
           
-      with st.expander("OpenAI Options"):
-        openai_api_key = st.text_input("API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
-        if openai_api_key:
-          openai_models = get_models(openai_api_key)
-          try:
-            gpt4_index = openai_models.index("gpt-3.5-turbo-16k")
-          except:
-            gpt4_index = 0
-          openai_model = st.selectbox("Model", openai_models, index=gpt4_index)
-          openai_temp = st.slider("Temperature", 0.0, 1.5, 1.3, 0.1,  help="The higher the temperature, the more creative the text.")
-          openai_max_tokens = st.slider("Max Tokens", 1024, 10000, 3072, 1024, help="Check the official documentation on maximum token size for the selected model.")
-        else:
-          openai_model = None
-          openai_temp = None
-          openai_max_tokens = None
-      
       with st.expander("Dialogue Options"):  
         models = el_audio.get_models()
         model_ids = [m.model_id for m in models]
@@ -118,6 +103,11 @@ def create_sidebar() -> SidebarData:
           model_index = model_names.index(model_name)
           model_id = model_ids[model_index]   
         
+        show_instructions = st.toggle(
+          "Enable Instructions",
+          value=True,
+          help="Once you get familar with the app you can turn this off."
+        )
         edit_audio = st.toggle(
           "Enable Audio Editing", 
           value=False,
@@ -158,6 +148,23 @@ def create_sidebar() -> SidebarData:
           value=200,
           help="The gap between spoken lines in milliseconds."
         )        
+      
+      with st.expander("OpenAI Options"):
+        openai_api_key = st.text_input("API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
+        if openai_api_key:
+          openai_models = get_models(openai_api_key)
+          try:
+            gpt4_index = openai_models.index("gpt-3.5-turbo-16k")
+          except:
+            gpt4_index = 0
+          openai_model = st.selectbox("Model", openai_models, index=gpt4_index)
+          openai_temp = st.slider("Temperature", 0.0, 1.5, 1.3, 0.1,  help="The higher the temperature, the more creative the text.")
+          openai_max_tokens = st.slider("Max Tokens", 1024, 10000, 3072, 1024, help="Check the official documentation on maximum token size for the selected model.")
+        else:
+          openai_model = None
+          openai_temp = None
+          openai_max_tokens = None
+      
       
       with st.expander("Voice Explorer"):
         el_voices = el_audio.get_voices()
@@ -206,6 +213,7 @@ def create_sidebar() -> SidebarData:
         model_id=model_id,
         voices=el_voices,
         voice_names=el_voice_names,
+        enable_instructions=show_instructions,
         enable_audio_editing=edit_audio,
         enable_normalization=normalize_audiobook,
         stability=stability,
@@ -223,6 +231,7 @@ def create_sidebar() -> SidebarData:
         model_id="",
         voices=[],
         voice_names=[],
+        enable_instructions=True,
         enable_audio_editing=False,
         enable_normalization=False,
         stability=0.35,

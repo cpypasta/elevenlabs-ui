@@ -6,8 +6,11 @@ A [streamlit app](https://elevenlabs-dialogue.streamlit.app/) that allows you cr
 
 ### TODO
 
-- [ ] Add water and engine sound effects.
+- [x] Add water and engine sound effects.
+- [x] Ability to upload your own sound effects.
+- [x] Add trim, extend, fade in, and fade out options to dialogue line editing.
+- [x] No instructions mode (for advanced users)
+- [ ] Ability to upload your own background sounds.
+- [ ] Add dialogue lines that are just background.
 - [ ] Allow for the dialogue line start time to vary independently (gaps or really talking over each other?).
 - [ ] Place characters into a common room (volume, reverb, and background).
-- [ ] Add dialogue lines that are just background.
-- [ ] Add trim, extend, fade in, fade out, options to dialogue line editing.

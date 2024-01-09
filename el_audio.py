@@ -28,6 +28,63 @@ class Soundboard:
   noise_gate_ratio: float = 0
   limiter_threshold_db: float = 0
 
+class Basic:
+  duration: int
+  volume: int
+  fade_in: int
+  fade_out: int
+  trim_in: int
+  trim_out: int
+  extend_in: int
+  extend_out: int
+  
+  def __init__(
+    self, 
+    duration: int = 0, 
+    volume: int = 0, 
+    fade: (int, int) = (0, 0), 
+    trim: (int, int) = (0, 0), 
+    extend: (int, int) = (0, 0)
+  ) -> None:
+    self.duration = duration
+    self.volume = volume
+    self.fade_in, self.fade_out = fade
+    self.fade_out = duration - self.fade_out
+    self.trim_in, self.trim_out = trim
+    self.trim_out = duration - self.trim_out
+    self.extend_in, self.extend_out = extend
+  
+  def __str__(self) -> str:
+    result = ""
+    result += f"duration: {self.duration}, "
+    result += f"volume: {self.volume}, "
+    result += f"fade_in: {self.fade_in}, "
+    result += f"fade_out: {self.fade_out}, "
+    result += f"trim_in: {self.trim_in}, "
+    result += f"trim_out: {self.trim_out}, "
+    result += f"extend_in: {self.extend_in}, "
+    result += f"extend_out: {self.extend_out}"
+    return result
+  
+  def adjustments(self) -> list[str]:
+    a = []
+    if self.volume != 0:
+      a.append(f"Volume:{self.volume}dB")
+    if self.fade_in != 0:
+      a.append(f"Fade In:{self.fade_in}ms")
+    if self.fade_out != 0:
+      a.append(f"Fade Out:{self.fade_out}ms")
+    if self.trim_in != 0:
+      a.append(f"Trim Start:{self.trim_in}ms")
+    if self.trim_out != 0:
+      a.append(f"Trim End:{self.trim_out}ms")
+    if self.extend_in != 0:
+      a.append(f"Extend In:{self.extend_in}ms")
+    if self.extend_out != 0:
+      a.append(f"Extend Out:{self.extend_out}ms")
+    return [f"`{x}`" for x in a]
+  
+
 @st.cache_data
 def get_voices() -> list[Voice]:
   """Get a list of voices from the Eleven Labs API."""
@@ -233,8 +290,6 @@ def apply_soundboard(audio: seg, soundboard: Soundboard) -> (seg, list[str]):
   if len(pedals) == 0:
     return audio, pedals
   applied_pedals = [pedal.__class__.__name__ for pedal in pedals]
-  log(f"Applying pedals: {applied_pedals}")
-  
   temp_input_filepath = f"./session/{st.session_state.session_id}/temp/in.wav"
   temp_output_filepath = f"./session/{st.session_state.session_id}/temp/out.wav"
   os.makedirs(os.path.dirname(temp_input_filepath), exist_ok=True)
@@ -261,7 +316,7 @@ def apply_soundboard(audio: seg, soundboard: Soundboard) -> (seg, list[str]):
 
 def edit_audio(
   speech_path: str, 
-  volume: int = None, 
+  basic: Basic = None,
   effect_path: str = None,
   start_effect: float = None,
   effect_volume: int = None,
@@ -272,8 +327,21 @@ def edit_audio(
   """Edit the audio file by changing the volume."""
   audio: seg = seg.from_mp3(speech_path)
   # basic settings
-  if volume:
-    audio = audio + volume
+  if basic.volume:
+    audio = audio + basic.volume
+  if basic.trim_in != 0:
+    audio = audio[basic.trim_in:]
+  if basic.trim_out != 0:
+    new_end = int(audio.duration_seconds * 1000) - basic.trim_out
+    audio = audio[:new_end]
+  if basic.extend_in != 0:
+    audio = seg.silent(basic.extend_in) + audio
+  if basic.extend_out != 0:
+    audio = audio + seg.silent(basic.extend_out)
+  if basic.fade_in != 0:
+    audio = audio.fade_in(basic.fade_in)
+  if basic.fade_out != 0:
+    audio = audio.fade_out(basic.fade_out)
   
   # soundboard
   audio, pedals = apply_soundboard(audio, soundboard)
@@ -281,7 +349,8 @@ def edit_audio(
   # effects
   effect = None
   if effect_path:
-    effect: seg = seg.from_wav(effect_path)
+    
+    effect: seg = seg.from_file(effect_path)
     if effect_volume:
       effect = effect + effect_volume
     if effect_repeat:
@@ -304,7 +373,7 @@ def edit_audio(
 
 def preview_audio(
   speech_path: str, 
-  volume: int = None, 
+  basic: Basic = None,
   effect_path: str = None,
   start_effect: float = None,
   effect_volume: int = None,
@@ -315,7 +384,7 @@ def preview_audio(
   """Preview the audio file after editing."""
   effect, audio, pedals = edit_audio(
     speech_path, 
-    volume, 
+    basic, 
     effect_path, 
     start_effect,
     effect_volume,
@@ -325,18 +394,42 @@ def preview_audio(
   )
   return segment_to_bytes(effect), segment_to_bytes(audio), pedals
 
-def get_effects() -> list[str]:
+def get_default_effects() -> list[str]:
   """Get the effects from the effects folder."""
-  return glob.glob("./effects/*.wav")
+  return glob.glob("./effects/*")
+
+def get_session_effects() -> list[str]:
+  """Get the effects from the effects folder."""
+  return glob.glob(f"./session/{st.session_state.session_id}/effects/*")
+
+def process_effect_file(file: str) -> str:
+  """Process the effect filename."""
+  name = os.path.splitext(os.path.basename(file))[0]
+  name = name.replace("_", " ")
+  return name
 
 @st.cache_data
-def get_effect_names() -> list[str]:
+def get_default_effect_names() -> list[str]:
   """Get the effect names from the effects folder."""
-  names = []
-  for file in get_effects():
-    name = os.path.basename(file).replace(".wav", "").replace("_", " ")
-    names.append(name)
-  return sorted(names)
+  names = [process_effect_file(f) for f in get_default_effects()]
+  return names
+
+def get_session_effect_names() -> list[str]:
+  """Get the effect names from the session effects folder."""
+  names = [process_effect_file(f) for f in get_session_effects()]
+  return names
+
+def get_effect_names() -> list[str]:
+  default_effects = get_default_effect_names()
+  session_effects = get_session_effect_names()
+  return sorted(default_effects + session_effects)
+
+def save_sound_effect(audio: bytes, name: str) -> None:
+  audio: seg = seg.from_wav(io.BytesIO(audio))
+  name = os.path.splitext(name)[0]
+  output_path = f"./session/{st.session_state.session_id}/effects/{name}.mp3"
+  os.makedirs(os.path.dirname(output_path), exist_ok=True)
+  audio.export(output_path, format="mp3") 
 
 def get_audio_duration(filename: str) -> float:
   """Get the duration of the speech in seconds."""
@@ -350,7 +443,16 @@ def get_audio_max_decibels(filename: str) -> (int, int):
 
 def get_effect_path(name: str) -> str:
   """Get the effect path from the effect name."""
-  return f"./effects/{name.replace(' ', '_')}.wav"
+  name = name.replace(' ', '_')
+  files = glob.glob(f"./effects/{name}.*")
+  if files:
+    return files[0]
+  else:
+    files = glob.glob(f"./session/{st.session_state.session_id}/effects/{name}.*")
+    if files:
+      return files[0]
+    else:
+      return None
 
 def apply_background_audio(background_name: str, fade_in: bool, fade_out: bool, lower_db: int, noramalize: bool) -> None:
   """Apply the background audio to the dialogue audio."""
