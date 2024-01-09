@@ -1,12 +1,12 @@
 import json
 import streamlit as st
 import pandas as pd
-from dialogues import Character, Dialogue
+from diatribe.dialogues import Character, Dialogue
 from openai import OpenAI
 from jsonschema import validate
-from utils import log
-from sidebar import SidebarData
-from saved_dialogues import get_selected_plot, SavedDialogueData
+from diatribe.utils import log
+from diatribe.sidebar import SidebarData
+from diatribe.saved_dialogues import get_selected_plot, SavedDialogueData
 
 openai_dialogue_schema = {
   "type": "object",

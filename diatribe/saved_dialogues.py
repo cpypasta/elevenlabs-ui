@@ -1,10 +1,9 @@
 import os, json, shutil
 import streamlit as st
-from dialogues import Character, Dialogue, load_dialogues_with_names, convert_dialogue_import_into_details
+from diatribe.dialogues import Character, Dialogue, load_dialogues_with_names, convert_dialogue_import_into_details
 from dataclasses import dataclass
-from utils import log
 from elevenlabs import Voice
-from el_audio import import_audio
+from diatribe.el_audio import import_audio
 
 @dataclass
 class SavedDialogueData:

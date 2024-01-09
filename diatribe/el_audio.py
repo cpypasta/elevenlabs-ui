@@ -1,11 +1,12 @@
-import os, glob, utils, shutil, io
+import os, glob, shutil, io
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+import diatribe.utils as utils
 from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices, generate as el_generate
 from pydub import AudioSegment as seg
-from sidebar import SidebarData
-from utils import log
+from diatribe.sidebar import SidebarData
+from diatribe.utils import log
 from pedalboard import Pedalboard, Compressor, Chorus, Reverb, Distortion, NoiseGate, Limiter
 from pedalboard.io import AudioFile
 from dataclasses import dataclass

@@ -1,8 +1,7 @@
-import os, el_audio, utils, datetime
+import os, diatribe.el_audio as el_audio, diatribe.utils as utils, datetime
 import streamlit as st
 from elevenlabs import Voice, User, set_api_key
 from dataclasses import dataclass
-from utils import log
 from openai import OpenAI
 from streamlit_js_eval import streamlit_js_eval
 

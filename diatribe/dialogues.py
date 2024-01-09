@@ -3,8 +3,8 @@ import pandas as pd
 import streamlit as st
 from pathlib import Path
 from elevenlabs import Voice
-from el_audio import get_voice_id
-from utils import log
+from diatribe.el_audio import get_voice_id
+from diatribe.utils import log
 
 class Character:
   def __init__(self, name: str, voice: str, voice_id: str, description: str = "") -> None:
