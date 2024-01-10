@@ -164,9 +164,10 @@ def create_sidebar() -> SidebarData:
           openai_key_value = st.session_state["openai_key_value"]
         else:
           openai_key_value = ""        
-        openai_api_key = st.text_input("API Key _(optional)_", openai_key_value, type="password")
+
+        openai_api_key = st.text_input("API Key _(optional)_", openai_key_value, type="password", key="openai_key")
         if openai_api_key:
-          st.session_state["openai_key_value"] = openai_key_value
+          st.session_state["openai_key_value"] = openai_api_key
           openai_models = get_models(openai_api_key)
           try:
             gpt4_index = openai_models.index("gpt-3.5-turbo-16k")
