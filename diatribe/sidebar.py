@@ -82,13 +82,21 @@ def get_models(openai_api_key: str) -> list[str]:
   model_ids = [m.id for m in response.data]
   return sorted(model_ids)
 
+
 def create_sidebar() -> SidebarData:
   """Create the streamlit sidebar."""
   with st.sidebar:    
-    el_key = st.text_input("ElevenLabs API Key", os.getenv("ELEVENLABS_API_KEY"), type="password", key="el_key")        
+    if os.getenv("ELEVENLABS_API_KEY"):
+      el_key_value = os.getenv("ELEVENLABS_API_KEY")
+    elif "el_key_value" in st.session_state:
+      el_key_value = st.session_state["el_key_value"]
+    else:
+      el_key_value = ""
+    el_key = st.text_input("ElevenLabs API Key", el_key_value, type="password", key="el_key")        
     
     if el_key:
-      set_api_key(el_key)          
+      st.session_state["el_key_value"] = el_key
+      set_api_key(el_key) 
           
       with st.expander("Dialogue Options"):  
         models = el_audio.get_models()
@@ -150,8 +158,15 @@ def create_sidebar() -> SidebarData:
         )        
       
       with st.expander("OpenAI Options"):
-        openai_api_key = st.text_input("API Key _(optional)_", os.getenv("OPENAI_API_KEY"), type="password")
+        if os.getenv("OPENAI_API_KEY"):
+          openai_key_value = os.getenv("OPENAI_API_KEY")
+        elif "openai_key_value" in st.session_state:
+          openai_key_value = st.session_state["openai_key_value"]
+        else:
+          openai_key_value = ""        
+        openai_api_key = st.text_input("API Key _(optional)_", openai_key_value, type="password")
         if openai_api_key:
+          st.session_state["openai_key_value"] = openai_key_value
           openai_models = get_models(openai_api_key)
           try:
             gpt4_index = openai_models.index("gpt-3.5-turbo-16k")
@@ -207,8 +222,8 @@ def create_sidebar() -> SidebarData:
       clear_dialogue = st.button("Clear Dialogue", help=":warning: Clear everything and start over. :warning:", use_container_width=True)
       if clear_dialogue:
         streamlit_js_eval(js_expressions="parent.window.location.reload()")
-            
-      return SidebarData(
+        
+      return SidebarData( 
         el_key=el_key,
         model_id=model_id,
         voices=el_voices,

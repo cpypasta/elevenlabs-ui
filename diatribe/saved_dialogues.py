@@ -44,6 +44,7 @@ def import_project(project_path: str) -> None:
   elif "final_audio" in st.session_state: 
     del st.session_state["final_audio"]
 
+@st.cache_data
 def sample_project_names() -> list[str]:
   projects = glob.glob("./saves/*.zip")
   return [os.path.basename(p).replace("_", " ").replace(".zip", "") for p in projects]
