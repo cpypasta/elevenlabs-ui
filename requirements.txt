@@ -7,3 +7,4 @@ matplotlib==3.8.2
 openai==1.6.1
 streamlit_js_eval==0.1.5
 pedalboard==0.8.7
+streamlit-extras==0.3.6

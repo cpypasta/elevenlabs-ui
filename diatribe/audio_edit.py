@@ -3,7 +3,7 @@ import diatribe.el_audio as el_audio
 from diatribe.dialogues import Dialogue
 from diatribe.utils import log
 
-def create_edit_dialogue_line(line: Dialogue) -> None:
+def create_edit_dialogue_line(line: Dialogue, audio_file: str) -> None:
     edit_audio_line_key = f"editing_audio_line_{line.line}"                                 
 
     if edit_audio_line_key not in st.session_state:
@@ -202,16 +202,19 @@ def create_edit_dialogue_line(line: Dialogue) -> None:
                         
         with special_tab:
             st.markdown("### 💥 Special Effect")
-
-            uploaded_special_effect = st.file_uploader(
-                "Upload Special Effect",
-                type=["mp3", "wav", "aiff"],
-                key=f"upload_effect_{line.line}"
-            )
-            if uploaded_special_effect:
-                audio_file = uploaded_special_effect.getvalue()
-                el_audio.save_sound_effect(audio_file, uploaded_special_effect.name)
-                st.toast("Special effect has been uploaded. Please click refresh to see it.", icon="👍")
+            
+            with st.form("upload special effect", clear_on_submit=True, border=True):
+                uploaded_special_effect = st.file_uploader(
+                    "Upload Special Effect",
+                    type=["mp3", "wav", "aiff"],
+                    key=f"upload_effect_{line.line}"
+                )
+                submit_uploaded_special_effect = st.form_submit_button("Upload", use_container_width=True)
+                if uploaded_special_effect and submit_uploaded_special_effect:
+                    if uploaded_special_effect:
+                        audio_file = uploaded_special_effect.getvalue()
+                        el_audio.save_sound_effect(audio_file, uploaded_special_effect.name)
+                        st.toast("Special effect has been uploaded. Please click refresh to see it.", icon="👍")
                 
             col1, col2 = st.columns([8, 1])
             with col1:
@@ -291,35 +294,35 @@ def create_edit_dialogue_line(line: Dialogue) -> None:
                 soundboard
             )                          
         
-        pedals = [f'`{p}`' for p in pedals]
-        adjustments = pedals
-        adjustments.extend(basic.adjustments())
-        if effect_name:
-            adjustments.append(f"`{effect_name.capitalize()}`")
-        if len(adjustments) > 0:
-            st.markdown(f"Adjustments: {' '.join(sorted(adjustments))}")  
+            pedals = [f'`{p}`' for p in pedals]
+            adjustments = pedals
+            adjustments.extend(basic.adjustments())
             if effect_name:
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    st.markdown("<p style='font-size:14px'>Special Effect Preview</p>", unsafe_allow_html=True)
-                    st.audio(effect_audio, format="audio/wav")
-                with col2:
-                    st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)                                
+                adjustments.append(f"`{effect_name.capitalize()}`")
+            if len(adjustments) > 0:
+                st.markdown(f"Adjustments: {' '.join(sorted(adjustments))}")  
+                if effect_name:
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        st.markdown("<p style='font-size:14px'>Special Effect Preview</p>", unsafe_allow_html=True)
+                        st.audio(effect_audio, format="audio/wav")
+                    with col2:
+                        st.markdown("<p style='font-size:14px'>Audio Preview</p>", unsafe_allow_html=True)                                
+                        st.audio(preview_audio, format="audio/wav")
+                else:
                     st.audio(preview_audio, format="audio/wav")
-            else:
-                st.audio(preview_audio, format="audio/wav")
                     
-            org_audio_waveform, new_audio_waveform = st.columns([1, 1])
-            with org_audio_waveform:
-                st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
-                y_max, plot = el_audio.generate_waveform_from_file(audio_file)
-                st.pyplot(plot)                  
-            with new_audio_waveform:
-                st.markdown("<p style='font-size:14px'>Updated</p>", unsafe_allow_html=True)
-                _, plot = el_audio.generate_waveform_from_bytes(preview_audio, y_max)
-                st.pyplot(plot) 
-        else:
-            st.toast("There are no audio edits selected.", icon="ℹ️")
+                org_audio_waveform, new_audio_waveform = st.columns([1, 1])
+                with org_audio_waveform:
+                    st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
+                    y_max, plot = el_audio.generate_waveform_from_file(audio_file)
+                    st.pyplot(plot)                  
+                with new_audio_waveform:
+                    st.markdown("<p style='font-size:14px'>Updated</p>", unsafe_allow_html=True)
+                    _, plot = el_audio.generate_waveform_from_bytes(preview_audio, y_max)
+                    st.pyplot(plot) 
+            else:
+                st.toast("There are no audio edits selected.", icon="ℹ️")
                             
         apply_edits = st.button("Apply", key=f"apply_{line.line}", use_container_width=True)
         if apply_edits:
@@ -336,3 +339,8 @@ def create_edit_dialogue_line(line: Dialogue) -> None:
             new_line_audio.export(audio_file, format="mp3")
             log(f"saving audio {audio_file}")
             st.rerun()
+
+def create_edit_diatribe() -> None:
+    # ambience (select charaters and apply reverb and background and volume)
+    # timing (allow for adjusting when each dialogue line starts)
+    st.tabs([""])

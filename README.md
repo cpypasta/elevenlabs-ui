@@ -11,6 +11,6 @@ A [streamlit app](https://elevenlabs-dialogue.streamlit.app/) that allows you cr
 - [x] Add trim, extend, fade in, and fade out options to dialogue line editing.
 - [x] No instructions mode (for advanced users)
 - [ ] Ability to upload your own background sounds.
-- [ ] Add dialogue lines that are just background.
 - [ ] Allow for the dialogue line start time to vary independently (gaps or really talking over each other?).
 - [ ] Place characters into a common room (volume, reverb, and background).
+- [ ] Allow the loading of complete projects (just like dialogue)

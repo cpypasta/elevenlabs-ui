@@ -23,6 +23,7 @@ class SidebarData:
   openai_temp: float
   openai_max_tokens: int
 
+@st.cache_data(ttl=900)
 def get_usage_percent() -> dict:
   """Get the character usage percent from the Eleven Labs API."""
   user_info = User.from_api()

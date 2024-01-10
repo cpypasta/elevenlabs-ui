@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
 import diatribe.el_audio as el_audio
+import diatribe.saved_dialogues as saved_dialogues
 from dotenv import load_dotenv
-from diatribe.dialogues import Character, Dialogue, get_voice_id, save_dialogue, characters_match, export_dialogue
+from streamlit_extras.stylable_container import stylable_container
+from diatribe.dialogues import Character, Dialogue, get_voice_id, export_dialogue, get_lines
 from diatribe.sidebar import create_sidebar
-from diatribe.saved_dialogues import get_selected_characters, get_selected_dialogue, on_load_saved, create_saved_dialogues
+from diatribe.saved_dialogues import create_saved_dialogues
 from diatribe.generate import create_dialogue_generation, create_continue_dialogue
 from diatribe.utils import log
 from diatribe.audio_edit import create_edit_dialogue_line
@@ -30,16 +32,33 @@ if __name__ == "__main__":
   sidebar = create_sidebar()
     
   if sidebar.el_key:
-    saves = create_saved_dialogues(sidebar.voices)    
+    saves = create_saved_dialogues()    
     
     st.header("Characters")
     if sidebar.enable_instructions:
       st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the `Voice Explorer` in the sidebar if you want to hear what a voice sounds like.")
       with st.expander("**WARNING**: changing characters can clear the dialogue"):
-        st.info("Adding or removing characters and modifying names will clear or reset the dialogue. That being said, you can freely change the voices without affecting the dialogue.")
+        st.info("Adding or removing characters and modifying names will clear or reset the dialogue. That being said, you can freely change the voices without affecting the dialogue.")      
     
-    if saves.selected_save_name:
-      character_data = [c.to_dict() for c in get_selected_characters(saves)]
+    with st.expander("Import Characters & Dialogue"):
+      uploaded_dialogue = None
+      with st.form("import dialogue", clear_on_submit=True, border=False):
+        dialogue_upload = st.file_uploader(
+          "Dialogue", type=["txt"]
+        )         
+        submit_dialogue_upload = st.form_submit_button("Import", use_container_width=True)
+        if submit_dialogue_upload and dialogue_upload:
+          uploaded_dialogue = dialogue_upload.getvalue()
+          saved_dialogues.convert_imported_dialogue(uploaded_dialogue)
+          if "audio_files" in st.session_state:
+            del st.session_state["audio_files"]
+          if "generated_dialogue" in st.session_state:
+            del st.session_state["generated_dialogue"]
+          if "final_audio" in st.session_state:
+            del st.session_state["final_audio"]
+    
+    if "imported_characters" in st.session_state:
+      character_data = st.session_state["imported_characters"]     
     else:
       character_data = []    
     character_table = st.data_editor(
@@ -86,25 +105,17 @@ if __name__ == "__main__":
     
     st.header("Dialogue")
     if sidebar.enable_instructions:
-      st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click `Generate Audio Dialogue` as often as you would like.")
-    
+      st.markdown("This is where you write or generate the dialogue. The audio dialogue will use the model and voice settings defined in the sidebar. You can generate the audio multiple times, so click `Generate Audio Dialogue` as often as you would like.")    
+      
     generated_dialogue = create_dialogue_generation(sidebar, saves, characters)
-
-    if "generated_dialogue" in st.session_state:
-      characters_matched = characters_match(character_table, st.session_state["generated_dialogue"])
-      if not characters_matched:
-        log("characters do not match between generated dialogue and current characters")
-        st.toast("It appears that the speakers in the dialogue do not match the characters you have defined.", icon="👎")
-        del st.session_state["generated_dialogue"]
         
     if generated_dialogue is not None: 
       st.session_state["generated_dialogue"] = generated_dialogue
       dialogue_df = generated_dialogue
     elif "generated_dialogue" in st.session_state:
       dialogue_df = st.session_state["generated_dialogue"]
-    elif saves.selected_save_name:
-      dialogue_data = [d.to_dict(without_line=True) for d in get_selected_dialogue(saves)]
-      dialogue_df = pd.DataFrame(dialogue_data, columns=["Speaker", "Text"])
+    elif "imported_dialogue" in st.session_state:
+      dialogue_df = st.session_state["imported_dialogue"]
     else:
       dialogue_df = pd.DataFrame([], columns=["Speaker", "Text"])
     
@@ -127,15 +138,7 @@ if __name__ == "__main__":
           width="large"
         )
       }
-    )    
-    
-    # save dialogue to file
-    if saves.save_dialogue and saves.save_dialogue_name:
-      save_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/saves/{saves.save_dialogue_name}.json")
-      st.toast("Dialogue has been saved. You will have to click refresh to see it.", icon="👍")
-    if saves.prepare_export:
-      export_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.txt")
-      st.rerun()
+    )              
     
     # extract Dialogues from the dialogue table
     if not dialogue_table.empty:
@@ -150,6 +153,19 @@ if __name__ == "__main__":
           pass        
       dialogue.sort(key=lambda x: x.line)
       
+      with st.expander("Export Characters & Dialogue"):
+        prepare_download_dialogue = st.button("Prepare Download", help="This will prepare the dialogue for download.", use_container_width=True)
+        if prepare_download_dialogue:
+          export_dialogue_path = export_dialogue(character_table, dialogue_table, sidebar.voices)
+          with open(export_dialogue_path, "r") as f:
+            st.download_button(
+              "Download",
+              data=f,
+              file_name=os.path.basename(export_dialogue_path),
+              mime="text/plain",
+              use_container_width=True
+            )        
+      
       # continue generated dialogue
       if sidebar.openai_api_key and not dialogue_table.empty:
         continue_btn = st.button("Continue Dialogue", use_container_width=True, help="This uses options set in `Dialogue Generation` to continue the dialogue.")
@@ -160,21 +176,19 @@ if __name__ == "__main__":
             st.rerun()
       
       # generate audio dialogue files
+      st.markdown("---")
       existing_audio_files = el_audio.get_generated_audio()
-      show_existing_audio_files = len(existing_audio_files) > 0 and "imported_file" in st.session_state
-      if show_existing_audio_files:
-        col1, col2 = st.columns([1, 1])
-        with col1:      
-          generate_btn = st.button("Generate Audio Dialogue", use_container_width=True) 
-        with col2:
-          use_existing_btn = st.button(
-            "Use Existing Audio", 
-            use_container_width=True, 
-            help="Use the existing audio files imported from a project.")
-          if use_existing_btn:
-            st.session_state["audio_files"] = existing_audio_files
-      else:
-        generate_btn = st.button("Generate Audio Dialogue", use_container_width=True)
+    
+      with stylable_container(
+        key="generate_dialogue_button_with_existing",
+        css_styles="""
+          button {
+            background-color: #545454;
+          }
+        """
+      ):
+        generate_btn = st.button("Generate Audio Dialogue", use_container_width=True, type="primary") 
+
       if generate_btn:
         st.session_state["final_audio"] = False
         el_audio.clear_audio_files()
@@ -204,11 +218,13 @@ if __name__ == "__main__":
           st.session_state["audio_files"] = audio_files
       
       if saves.prepare_project:
-        export_dialogue(character_table, dialogue_table, sidebar.voices, f"./session/{st.session_state.session_id}/export/dialogue.txt")
-        el_audio.export_audio()
+        export_path = f"./session/{st.session_state.session_id}/export"
+        shutil.rmtree(export_path, ignore_errors=True)
+        export_dialogue(character_table, dialogue_table, sidebar.voices)
+        el_audio.export_audio(get_lines(dialogue))
         project_path = f"./session/{st.session_state.session_id}/project"
         os.makedirs(project_path, exist_ok=True)
-        shutil.make_archive(f"{project_path}/project", "zip", f"./session/{st.session_state.session_id}/export")
+        shutil.make_archive(f"{project_path}/project", "zip", export_path)
         st.rerun()
       
       if "audio_files" in st.session_state:   
@@ -217,10 +233,10 @@ if __name__ == "__main__":
         if sidebar.enable_instructions:
           st.markdown("The dialogue text has now been coverted into audio. You can listen to the audio by clicking the play button. If you want to regenerate the audio, you can click the `Generate Audio Dialogue` button above. If you are happy with the audio, you can join the audio files together by clicking the `Join Dialogue` button below. You can also click the `Redo` button to regenerate the audio for a specific line.")
           with st.expander("**WARNING**: deleting dialogue lines requires audio regeneration"):
-            st.info("If you delete dialogue lines, you will have to regenerate the audio by clicking the `Generate Audio Dialogue` button above. Adding or modifying dialogue lines will not require regeneration of all lines, but you will likely need to click the `Redo` button for the affected lines.")
-                    
+            st.info("If you delete dialogue lines, you will have to regenerate the audio by clicking the `Generate Audio Dialogue` button above. Adding or modifying dialogue lines will not require regeneration of all lines, but you will likely need to click the `Redo` button for the affected lines.")                 
+        
         for i, line in enumerate(dialogue):
-          st.markdown(f"#### `{i + 1}.` **{line.character.name}**: \"{line.text}\"")
+          st.markdown(f"`{i + 1}.` **:green[{line.character.name}]**: \"{line.text}\"")
           
           col1, col2 = st.columns([9, 1])
           with col1:     
@@ -243,12 +259,20 @@ if __name__ == "__main__":
             
           # dialogue audio editing
           if audio_file_found and sidebar.enable_audio_editing:
-            create_edit_dialogue_line(line)
-          st.markdown("---")
-          
+            create_edit_dialogue_line(line, audio_file)    
+      
       # join final audio
       if "audio_files" in st.session_state:
-        join_dialogue = st.button("Join Dialogue", use_container_width=True)
+        st.markdown("---")
+        with stylable_container(
+          key="join_dialogue_button",
+          css_styles="""
+            button {
+              background-color: #545454;
+            }
+          """
+        ):        
+          join_dialogue = st.button("Join Dialogue", use_container_width=True, type="primary")
         line_indices = [d.line for d in dialogue]
         if join_dialogue:          
           el_audio.join_audio(line_indices, sidebar.join_gap, sidebar.enable_normalization)
@@ -318,11 +342,20 @@ if __name__ == "__main__":
           st.pyplot(fig)
           
         with open(dialogue_path, "rb") as mp3_audio:
-          st.download_button(
-            label="Download Final Dialogue",
-            data=mp3_audio, 
-            file_name="dialogue.mp3", 
-            mime="audio/mp3",
-            use_container_width=True
-          )
+          with stylable_container(
+            key="download_dialogue_button",
+            css_styles="""
+              button {
+                background-color: #545454;
+              }
+            """
+          ):
+            st.download_button(
+              label="Download Final Dialogue",
+              data=mp3_audio, 
+              file_name="dialogue.mp3", 
+              mime="audio/mp3",
+              use_container_width=True,
+              type="primary"
+            )
     

@@ -6,7 +6,7 @@ from openai import OpenAI
 from jsonschema import validate
 from diatribe.utils import log
 from diatribe.sidebar import SidebarData
-from diatribe.saved_dialogues import get_selected_plot, SavedDialogueData
+from diatribe.saved_dialogues import SavedDialogueData
 
 openai_dialogue_schema = {
   "type": "object",
@@ -145,14 +145,13 @@ def create_dialogue_generation(sidebar: SidebarData, saves: SavedDialogueData, c
           except Exception as e:
             log(e)
             st.error("An error occured while generating the plot. Please try again.")
-      elif saves.selected_save_name:
-        plot_value = get_selected_plot(saves)
-        st.session_state["plot"] = plot_value
+      elif "imported_plot" in st.session_state:
+        plot_value = st.session_state["imported_plot"]
       elif "plot" in st.session_state:
         plot_value = st.session_state["plot"]
       
       plot = st.text_area("Desired Plot", plot_value, placeholder="describe what you want to happen in the dialogue")
-      if "plot" in st.session_state and st.session_state["plot"] != plot:
+      if plot:
         st.session_state["plot"] = plot
         
       number_of_lines = st.slider(

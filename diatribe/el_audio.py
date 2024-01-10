@@ -141,16 +141,35 @@ def generate_and_save(
     f.write(audio)  
   return audio_file
 
-def export_audio() -> None:
+def export_audio(lines_to_copy: list[int], include_dialogue: bool = True) -> str:
   """Export the audio files from the audio folder to the export folder."""
   src_dir = f"./session/{st.session_state.session_id}/audio"
   dst_dir = f"./session/{st.session_state.session_id}/export/audio"
+
+  if not os.path.exists(src_dir) or len(os.listdir(src_dir)) == 0:
+    return None
   if os.path.exists(dst_dir):
     shutil.rmtree(dst_dir)
-  shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns("dialogue.mp3"))
+  os.makedirs(dst_dir, exist_ok=True)
+  for line in lines_to_copy:
+    try:
+      shutil.copy(f"{src_dir}/line{line}.mp3", f"{dst_dir}/line{line}.mp3")
+    except:
+      log(f"line{line}.mp3 does not exist")
+  if include_dialogue and os.path.exists(f"{src_dir}/dialogue.mp3"):
+    shutil.copy(f"{src_dir}/dialogue.mp3", f"{dst_dir}/dialogue.mp3")
+  return dst_dir
 
-def import_audio() -> list[str]:
-  src_dir = f"./session/{st.session_state.session_id}/import/contents/audio"
+def export_dialogue_audio(lines_to_copy: list[int]) -> str:
+  audio_dir = export_audio(lines_to_copy, include_dialogue=False)
+  if audio_dir is None:
+    return None
+  export_path = f"./session/{st.session_state.session_id}/export/dialogue_audio/audio"
+  os.makedirs(export_path, exist_ok=True)
+  shutil.make_archive(export_path, "zip", audio_dir)
+  return f"{export_path}.zip"   
+
+def import_audio(src_dir: str) -> list[str]:
   dst_dir = f"./session/{st.session_state.session_id}/audio"
   if os.path.exists(dst_dir):
     shutil.rmtree(dst_dir)
