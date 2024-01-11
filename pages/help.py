@@ -38,6 +38,11 @@ st.markdown("""
     was given since the dialogues created tended to be silly and long-winded.
 """)
 
+st.info("""
+    Be careful switching between the app and this help, since any dialogue you may have created will be lost.
+    I recommend you save your dialogue before switching to this help page or simply open help in a new tab.
+""")
+
 st.markdown("# Quickstart")
 
 st.markdown("# Saving & Loading")

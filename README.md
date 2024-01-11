@@ -14,3 +14,5 @@ A [streamlit app](https://elevenlabs-dialogue.streamlit.app/) that allows you cr
 - [ ] Allow for the dialogue line start time to vary independently (gaps or really talking over each other?).
 - [ ] Place characters into a common room (volume, reverb, and background).
 - [ ] Allow the loading of complete projects (just like dialogue)
+- [ ] Allow applying each audio effect in form so it clears; also better to preview and apply each
+- [ ] Quick selections for reverb, compression, or other common settings

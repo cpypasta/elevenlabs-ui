@@ -1,89 +1,62 @@
 import os, glob, shutil, io
+from typing import Any
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import diatribe.utils as utils
 from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices, generate as el_generate
 from pydub import AudioSegment as seg
+from pedalboard import Pedalboard, Plugin
+from pedalboard.io import AudioFile
+from pathlib import Path
 from diatribe.sidebar import SidebarData
 from diatribe.utils import log
-from pedalboard import Pedalboard, Compressor, Chorus, Reverb, Distortion, NoiseGate, Limiter
-from pedalboard.io import AudioFile
-from dataclasses import dataclass
-from pathlib import Path
+from diatribe.edits import AudioEdit, Pedal, BasicEdit, BackgroundEdit, CompressorEdit, LimiterEdit
 
-@dataclass
 class Soundboard:
-  compressor_threshold_db: float = 0
-  compressor_ratio: float = 0
-  chorus_rate_hz: float = 0
-  chorus_depth: float = 0
-  chorus_centre_delay: float = 0
-  chorus_feedback: float = 0
-  reverb_room_size: float = 0
-  reverb_damping: float = 0
-  reverb_web_level: float = 0
-  reverb_dry_level: float = 0
-  distortion_db: float = 0
-  noise_gate_threshold_db: float = 0
-  noise_gate_ratio: float = 0
-  limiter_threshold_db: float = 0
+  def __init__(self, edits: list[AudioEdit] = []) -> None:
+    self.edits = edits
+  
+  def add(self, sounds: any) -> "Soundboard":
+    if isinstance(sounds, list):
+      self.edits.extend(sounds)
+    else:
+      self.edits.append(sounds)
+    return self
+  
+  
+  def basic(self) -> BasicEdit:
+    base = None
+    for edit in self.edits:
+      if isinstance(edit, BasicEdit):
+        base = edit
+    return base
+  
+  def background(self) -> BackgroundEdit:
+    background = None
+    for edit in self.edits:
+      if isinstance(edit, BackgroundEdit):
+        background = edit
+    return background
+  
+  def pedals(self) -> list[Pedal]:
+    return list(filter(lambda x: isinstance(x, Pedal), self.edits))
 
-class Basic:
-  duration: int
-  volume: int
-  fade_in: int
-  fade_out: int
-  trim_in: int
-  trim_out: int
-  extend_in: int
-  extend_out: int
+  def is_enabled(self) -> bool:
+    return any(x.is_enabled() for x in self.edits)
   
-  def __init__(
-    self, 
-    duration: int = 0, 
-    volume: int = 0, 
-    fade: (int, int) = (0, 0), 
-    trim: (int, int) = (0, 0), 
-    extend: (int, int) = (0, 0)
-  ) -> None:
-    self.duration = duration
-    self.volume = volume
-    self.fade_in, self.fade_out = fade
-    self.fade_out = duration - self.fade_out
-    self.trim_in, self.trim_out = trim
-    self.trim_out = duration - self.trim_out
-    self.extend_in, self.extend_out = extend
-  
-  def __str__(self) -> str:
-    result = ""
-    result += f"duration: {self.duration}, "
-    result += f"volume: {self.volume}, "
-    result += f"fade_in: {self.fade_in}, "
-    result += f"fade_out: {self.fade_out}, "
-    result += f"trim_in: {self.trim_in}, "
-    result += f"trim_out: {self.trim_out}, "
-    result += f"extend_in: {self.extend_in}, "
-    result += f"extend_out: {self.extend_out}"
-    return result
-  
+  def enabled(self) -> list[AudioEdit]:
+    return list(filter(lambda x: x.is_enabled(), self.edits))
+
+  def enabled_pedals(self) -> list[Plugin]:
+    pedals = self.pedals()
+    return [pedal.as_pedal() for pedal in pedals if pedal.is_enabled()]
+
   def adjustments(self) -> list[str]:
-    a = []
-    if self.volume != 0:
-      a.append(f"Volume:{self.volume}dB")
-    if self.fade_in != 0:
-      a.append(f"Fade In:{self.fade_in}ms")
-    if self.fade_out != 0:
-      a.append(f"Fade Out:{self.fade_out}ms")
-    if self.trim_in != 0:
-      a.append(f"Trim Start:{self.trim_in}ms")
-    if self.trim_out != 0:
-      a.append(f"Trim End:{self.trim_out}ms")
-    if self.extend_in != 0:
-      a.append(f"Extend In:{self.extend_in}ms")
-    if self.extend_out != 0:
-      a.append(f"Extend Out:{self.extend_out}ms")
-    return [f"`{x}`" for x in a]
+    adjustments = []
+    for item in self.enabled():
+      adjustments.extend(item.adjustments())
+    return [f"`{a}`" for a in adjustments]
   
 
 @st.cache_data
@@ -213,13 +186,23 @@ def generate_waveform_from_bytes(audio_bytes: bytes, y_max: float) -> (int, plt.
 def normalize_final_audio(audio: seg) -> seg:
   """Normalize the final audio."""
   log("applying audiobook normalization")
-  soundboard = Soundboard(compressor_threshold_db=-18, compressor_ratio=3, limiter_threshold_db=-3)   
-  final_audio, _ = apply_soundboard(audio, soundboard)
+  soundboard = Soundboard([CompressorEdit(threshold=-18, ratio=3), LimiterEdit(threshold=-3)])
+  final_audio = apply_soundboard(audio, soundboard)
   return final_audio
 
-def join_audio(line_indices: list[int], join_gap: int, normalize: bool = False) -> None:
+def join_audio(
+  line_indices: list[int], 
+  join_gap: int, 
+  source_path: str = None,
+  destination_path: str = None,
+  normalize: bool = False
+) -> None:
   """Join audio files found in the audio folder together with a gap in between with optional normalization."""
-  audio_files = [f"./session/{st.session_state.session_id}/audio/line{i}.mp3" for i in line_indices]
+  if source_path is None or destination_path is None:
+    source_path = f"./session/{st.session_state.session_id}/audio"
+    destination_path = source_path
+  
+  audio_files = [f"{source_path}/line{i}.mp3" for i in line_indices]
   log(f"joining {len(audio_files)} audio files: {line_indices}")
   
   gap = seg.silent(join_gap)
@@ -238,8 +221,10 @@ def join_audio(line_indices: list[int], join_gap: int, normalize: bool = False) 
   
   if normalize:
     final_audio = normalize_final_audio(final_audio)
-              
-  final_audio.export(f"./session/{st.session_state.session_id}/audio/dialogue.mp3", format="mp3") 
+  
+  final_audio.export(f"{destination_path}/dialogue.mp3", format="mp3") 
+  log(f"joined audio: {f'{destination_path}/dialogue.mp3'}")
+  
   if "background_added" in st.session_state:
     del st.session_state["background_added"]
   joining_audio_bar.empty()
@@ -272,44 +257,14 @@ def segment_to_bytes(segment: seg) -> bytes:
   audio_bytes = buffer.getvalue()
   return audio_bytes 
 
-def apply_soundboard(audio: seg, soundboard: Soundboard) -> (seg, list[str]):
+def apply_soundboard(audio: seg, soundboard: Soundboard) -> seg:
   """Apply the soundboard to the audio."""
-  pedals = []
-  if soundboard.distortion_db != 0:
-    pedals.append(Distortion(
-      drive_db=soundboard.distortion_db
-    ))  
-  if soundboard.chorus_rate_hz != 0:
-    pedals.append(Chorus(
-      rate_hz=soundboard.chorus_rate_hz, 
-      depth=soundboard.chorus_depth, 
-      centre_delay_ms=soundboard.chorus_centre_delay, 
-      feedback=soundboard.chorus_feedback
-    ))
-  if soundboard.reverb_room_size != 0:
-    pedals.append(Reverb(
-      room_size=soundboard.reverb_room_size, 
-      damping=soundboard.reverb_damping,
-      wet_level=soundboard.reverb_web_level,
-      dry_level=soundboard.reverb_dry_level
-    ))
-  if soundboard.noise_gate_threshold_db != 0:
-    pedals.append(NoiseGate(
-      threshold_db=soundboard.noise_gate_threshold_db, 
-      ratio=soundboard.noise_gate_ratio
-    ))
-  if soundboard.limiter_threshold_db != 0:
-    pedals.append(Limiter(
-      threshold_db=soundboard.limiter_threshold_db
-    ))
-  if soundboard.compressor_threshold_db != 0:
-    pedals.append(Compressor(
-      threshold_db=soundboard.compressor_threshold_db, 
-      ratio=soundboard.compressor_ratio)
-  )    
+  pedals = soundboard.enabled_pedals()
+
   if len(pedals) == 0:
-    return audio, pedals
-  applied_pedals = [pedal.__class__.__name__ for pedal in pedals]
+    return audio
+  
+  log("applying soundboard")
   temp_input_filepath = f"./session/{st.session_state.session_id}/temp/in.wav"
   temp_output_filepath = f"./session/{st.session_state.session_id}/temp/out.wav"
   os.makedirs(os.path.dirname(temp_input_filepath), exist_ok=True)
@@ -332,22 +287,17 @@ def apply_soundboard(audio: seg, soundboard: Soundboard) -> (seg, list[str]):
   new_audio = seg.from_wav(temp_output_filepath)
   os.remove(temp_input_filepath)
   os.remove(temp_output_filepath)
-  return new_audio, applied_pedals
+  return new_audio
 
-def edit_audio(
-  speech_path: str, 
-  basic: Basic = None,
-  effect_path: str = None,
-  start_effect: float = None,
-  effect_volume: int = None,
-  effect_repeat: int = None,
-  effect_fade_out: int = None,
-  soundboard: Soundboard = None
-) -> (seg, seg, list[str]):
-  """Edit the audio file by changing the volume."""
-  audio: seg = seg.from_mp3(speech_path)
-  # basic settings
-  if basic.volume:
+def apply_basic(audio: seg, soundboard: Soundboard) -> seg:
+  basic = soundboard.basic()
+  
+  if basic is None or not basic.is_enabled():
+    return audio
+  
+  log("applying basic auido edits")
+
+  if basic.volume != 0:
     audio = audio + basic.volume
   if basic.trim_in != 0:
     audio = audio[basic.trim_in:]
@@ -362,14 +312,47 @@ def edit_audio(
     audio = audio.fade_in(basic.fade_in)
   if basic.fade_out != 0:
     audio = audio.fade_out(basic.fade_out)
+  return audio  
+
+def apply_background(dialogue_file: str, background_file: str, edit: BackgroundEdit) -> (seg, seg):
+  if not edit.is_enabled():
+    return None
   
-  # soundboard
-  audio, pedals = apply_soundboard(audio, soundboard)
+  dialogue: seg = seg.from_mp3(dialogue_file)
+  background: seg = seg.from_mp3(background_file)
+  if background.duration_seconds > dialogue.duration_seconds:
+    background = background[:dialogue.duration_seconds * 1000]
+  if edit.volume > 0:
+    background = background - edit.volume
+  if edit.fade_in:
+    background = background.fade_in(1500)
+  if edit.fade_out:
+    background = background.fade_out(1000)
+  return dialogue, background
+
+def apply_edits(audio_path: str, soundboard: Soundboard) -> seg:
+  """Apply the soundboard edits to the audio."""
+  audio: seg = seg.from_mp3(audio_path)
+  audio = apply_basic(audio, soundboard)
+  audio = apply_soundboard(audio, soundboard)
+  return audio
+
+def edit_audio(
+  speech_path: str, 
+  effect_path: str = None,
+  start_effect: float = None,
+  effect_volume: int = None,
+  effect_repeat: int = None,
+  effect_fade_out: int = None,
+  soundboard: Soundboard = None
+) -> (seg, seg):
+  """Edit the audio file by changing the volume."""
+  audio = apply_edits(speech_path, soundboard)
     
   # effects
   effect = None
   if effect_path:
-    
+    log("applying effect")
     effect: seg = seg.from_file(effect_path)
     if effect_volume:
       effect = effect + effect_volume
@@ -389,22 +372,20 @@ def edit_audio(
       effect = effect.fade_out(effect_fade_out)
     
     audio = audio.overlay(effect, position=start_effect * 1000)
-  return effect, audio, pedals
+  return effect, audio
 
 def preview_audio(
   speech_path: str, 
-  basic: Basic = None,
   effect_path: str = None,
   start_effect: float = None,
   effect_volume: int = None,
   effect_repeat: int = None,
   effect_fade_out: int = None,
   soundboard: Soundboard = None
-) -> (bytes, bytes, list[str]):
+) -> (bytes, bytes):
   """Preview the audio file after editing."""
-  effect, audio, pedals = edit_audio(
+  effect, audio = edit_audio(
     speech_path, 
-    basic, 
     effect_path, 
     start_effect,
     effect_volume,
@@ -412,7 +393,7 @@ def preview_audio(
     effect_fade_out,
     soundboard
   )
-  return segment_to_bytes(effect), segment_to_bytes(audio), pedals
+  return segment_to_bytes(effect), segment_to_bytes(audio)
 
 def get_default_effects() -> list[str]:
   """Get the effects from the effects folder."""
@@ -474,27 +455,52 @@ def get_effect_path(name: str) -> str:
     else:
       return None
 
-def apply_background_audio(background_name: str, fade_in: bool, fade_out: bool, lower_db: int, noramalize: bool) -> None:
+def apply_background_audio(
+  lines_affected: list[int], 
+  lines: list[int], 
+  soundboard: Soundboard, 
+  gap: int,
+  normalize: bool
+) -> None:
   """Apply the background audio to the dialogue audio."""
-  background_files = [str(x) for x in list(Path(".").glob("backgrounds/*.mp3"))]
-  background_index = background_files.index(get_background_file_from_name(background_name))
-  background_file = background_files[background_index]
-  dialogue_file = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
+  # apply soundbar to each audio file matching to the line
+  temp_audio_path = f"./session/{st.session_state.session_id}/temp/background"
+  if os.path.exists(temp_audio_path):
+    shutil.rmtree(temp_audio_path)
+  os.makedirs(f"{temp_audio_path}/joined", exist_ok=True)
+  shutil.copytree(f"./session/{st.session_state.session_id}/audio", f"{temp_audio_path}/lines", dirs_exist_ok=True)
+  audio_files = [f"./session/{st.session_state.session_id}/audio/line{i}.mp3" for i in lines_affected] 
+  for file in audio_files:
+    audio = apply_edits(file, soundboard)
+    audio.export(f"{temp_audio_path}/lines/{os.path.basename(file)}", format="mp3")
   
-  dialogue: seg = seg.from_mp3(dialogue_file)
-  background: seg = seg.from_mp3(background_file)
-  if background.duration_seconds > dialogue.duration_seconds:
-    background = background[:dialogue.duration_seconds * 1000]
-  if lower_db > 0:
-    background = background - lower_db
-  if fade_in:
-    background = background.fade_in(1500)
-  if fade_out:
-    background = background.fade_out(1000)
-  if noramalize:
-    background = normalize_final_audio(background)
+  # backup old dialogue audio
+  shutil.copy(
+    f"./session/{st.session_state.session_id}/audio/dialogue.mp3", 
+    f"./session/{st.session_state.session_id}/audio/dialogue_org.mp3"
+  )
   
-  final_dialgoue = dialogue.overlay(background)
-  final_dialgoue.export(f"./session/{st.session_state.session_id}/audio/dialogue_background.mp3", format="mp3")  
-  st.session_state["background_added"] = True
+  # join audio files together
+  dialogue_path = f"{temp_audio_path}/joined"
+  join_audio(
+    lines, 
+    gap, 
+    normalize=normalize, 
+    source_path=f"{temp_audio_path}/lines", 
+    destination_path=dialogue_path
+  )
+  
+  # add background over joined audio
+  background_edit = soundboard.background()
+  if background_edit is not None and background_edit.is_enabled():
+    background_files = [str(x) for x in list(Path(".").glob("backgrounds/*.mp3"))]
+    background_index = background_files.index(get_background_file_from_name(background_edit.name))
+    background_file = background_files[background_index]  
+    dialogue, background = apply_background(f"{dialogue_path}/dialogue.mp3", background_file, background_edit)
+    final_dialgoue = dialogue.overlay(background)
+  else:
+    final_dialgoue = seg.from_mp3(f"{dialogue_path}/dialogue.mp3")
+    
+  final_dialgoue.export(f"./session/{st.session_state.session_id}/audio/dialogue.mp3", format="mp3")  
+  st.session_state["background_added"] = ' '.join(soundboard.adjustments())
    

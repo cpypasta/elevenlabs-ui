@@ -6,22 +6,24 @@ from diatribe.el_audio import get_voice_id
 from diatribe.utils import log
 
 class Character:
-  def __init__(self, name: str, voice: str, voice_id: str, description: str = "") -> None:
+  def __init__(self, name: str, voice: str, voice_id: str, description: str = "", group: int = 1) -> None:
     self.name = name
     self.voice = voice
     self.voice_id = voice_id
     self.description = description
+    self.group = group
   
   def to_dict(self) -> dict:
     return {
       "Name": self.name,
       "Voice": self.voice,
       "Voice_ID": self.voice_id,
-      "Description": self.description
+      "Description": self.description,
+      "Group": self.group
     }
   
   def __str__(self):
-    return f"{self.name};{self.voice};{self.voice_id}"
+    return f"{self.name};{self.voice};{self.voice_id};{self.description};{self.group}"
   
   def __repr__(self) -> str:
     return self.__str__()
@@ -59,7 +61,7 @@ def generate_dialogue_details(
   """Generate dialogue details in a common format suitiable for JSON."""
   characters: list[Character] = []
   for i, c in characters_df.iterrows():
-    characters.append(Character(c["Name"], c["Voice"], get_voice_id(c["Voice"], voices), description=c["Description"]))
+    characters.append(Character(c["Name"], c["Voice"], get_voice_id(c["Voice"], voices), description=c["Description"], group=c["Group"]))
   dialogue: list[Dialogue] = []
   for i, d in dialogue_df.iterrows():
     character = next((c for c in characters if c.name == d["Speaker"]), None)
@@ -88,8 +90,12 @@ def convert_dialogue_import_into_data(data: str) -> dict:
     if character.startswith("#"):
       continue
     name, description = character.split(":")
-    name, voice = name.split("|")
-    characters.append({ "Name": name, "Voice": voice, "Description": description.strip() })
+    name, voice, *group = name.split("|")
+    if len(group) == 0 or group[0] == "None":
+      group = 1
+    else:
+      group = group[0]
+    characters.append({ "Name": name, "Voice": voice, "Description": description.strip(), "Group": group })
   
   for line in dialogue_input.split("\n"):
     if line.startswith("#"):
@@ -99,7 +105,7 @@ def convert_dialogue_import_into_data(data: str) -> dict:
     dialogues.append({ "Speaker": speaker, "Text": text.strip() })
   
   return {
-    "characters": pd.DataFrame(characters, columns=["Name", "Voice", "Description"]), 
+    "characters": pd.DataFrame(characters, columns=["Name", "Voice", "Group", "Description"]), 
     "dialogue": pd.DataFrame(dialogues, columns=["Speaker", "Text"]), 
     "plot": plot
   }
@@ -114,7 +120,7 @@ def convert_dialogue_details_into_export(dialogue_details: dict) -> str:
   for character in characters:
     character_description = character['Description']
     character_description = character_description if character_description is not None and len(character_description) > 0 else ""
-    characters_output += f"{character['Name']}|{character['Voice']}: {character_description}\n"
+    characters_output += f"{character['Name']}|{character['Voice']}|{character['Group']}: {character_description}\n"
   dialogue_output = "# DIALOGUE\n"
   for line in dialogue:
     dialogue_output += f"{line['Speaker']}: {line['Text']}\n"

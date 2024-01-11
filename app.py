@@ -1,4 +1,4 @@
-import os, uuid, shutil, time
+import os, uuid, shutil
 import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
@@ -6,15 +6,23 @@ import diatribe.el_audio as el_audio
 import diatribe.saved_dialogues as saved_dialogues
 from dotenv import load_dotenv
 from streamlit_extras.stylable_container import stylable_container
+from streamlit_card import card
 from diatribe.dialogues import Character, Dialogue, get_voice_id, export_dialogue, get_lines
 from diatribe.sidebar import create_sidebar
 from diatribe.saved_dialogues import create_saved_dialogues
 from diatribe.generate import create_dialogue_generation, create_continue_dialogue
 from diatribe.utils import log
-from diatribe.audio_edit import create_edit_dialogue_line
+from diatribe.audio_edit import create_edit_dialogue_line, create_edit_diatribe
 
 load_dotenv()
 plt.style.use('dark_background')
+
+button_style = """
+  button {
+    background-color: #50a35f;
+    border-color: #50a35f;
+  }
+"""
 
 def show_final_audio() -> bool:
   return "final_audio" in st.session_state and st.session_state.final_audio
@@ -61,8 +69,9 @@ if __name__ == "__main__":
       character_data = st.session_state["imported_characters"]     
     else:
       character_data = []    
+            
     character_table = st.data_editor(
-      pd.DataFrame(character_data, columns=["Name", "Voice", "Description"]),
+      pd.DataFrame(character_data, columns=["Name", "Voice", "Group", "Description"]),
       use_container_width=True,
         hide_index=True,
       num_rows="dynamic",
@@ -77,6 +86,11 @@ if __name__ == "__main__":
           "Voice",
           options=sidebar.voice_names,
           required=True,
+          width="small"
+        ),
+        "Group": st.column_config.NumberColumn(
+          "Group",
+          required=False,
           width="small"
         ),
         "Description": st.column_config.TextColumn(
@@ -98,7 +112,8 @@ if __name__ == "__main__":
         row["Name"], 
         row["Voice"], 
         get_voice_id(row["Voice"], sidebar.voices),
-        description=row["Description"]
+        description=row["Description"],
+        group=int(row["Group"])
       )
       characters.append(c)
     character_names = [character.name for character in characters]
@@ -181,11 +196,7 @@ if __name__ == "__main__":
     
       with stylable_container(
         key="generate_dialogue_button_with_existing",
-        css_styles="""
-          button {
-            background-color: #545454;
-          }
-        """
+        css_styles=button_style
       ):
         generate_btn = st.button("Generate Audio Dialogue", use_container_width=True, type="primary") 
 
@@ -266,16 +277,16 @@ if __name__ == "__main__":
         st.markdown("---")
         with stylable_container(
           key="join_dialogue_button",
-          css_styles="""
-            button {
-              background-color: #545454;
-            }
-          """
+          css_styles=button_style
         ):        
           join_dialogue = st.button("Join Dialogue", use_container_width=True, type="primary")
         line_indices = [d.line for d in dialogue]
         if join_dialogue:          
-          el_audio.join_audio(line_indices, sidebar.join_gap, sidebar.enable_normalization)
+          el_audio.join_audio(
+            line_indices, 
+            sidebar.join_gap, 
+            normalize=sidebar.enable_normalization
+          )
           st.session_state["final_audio"] = True
       
       # show final audio
@@ -283,59 +294,27 @@ if __name__ == "__main__":
         st.header("Audio Diatribe")
         if sidebar.enable_instructions:
           st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
-                
-        with st.expander("Background Audio"):
-          background_names = el_audio.get_background_audio()
-          if sidebar.enable_instructions:
-            st.markdown("You can add background audio to the final dialogue. If you want to remove the background audio, you will have to regenerate the final dialogue by clicking `Join Dialogue`.")
-          background_name = st.selectbox(
-            "Background Audio", 
-            background_names, 
-            index=None, 
-            label_visibility="collapsed", 
-            placeholder="Select a background audio"
-          )
-          if background_name:
-            st.audio(el_audio.get_background_file_from_name(background_name))
-          background_fade, background_volume = st.columns([1, 3])
-          with background_fade:
-            fade_in = st.toggle("Fade In", value=True)
-            fade_out = st.toggle("Fade Out", value=True)
-          with background_volume:
-            lower_db = st.slider("Lower Background Volume (dB)", 0, 25, 0, 1, help="lowers the background audio by specified decibels")
-
-          add_background_btn = st.button("Add Background", use_container_width=True)
-          if add_background_btn and background_name:
-            with st.spinner("Adding background audio..."):
-              el_audio.apply_background_audio(background_name, fade_in, fade_out, lower_db, sidebar.enable_normalization)
-              st.toast("Background audio has been added.", icon="👍")
         
-        if "background_added" in st.session_state:
-          log("using background audio")
-          dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue_background.mp3"
-        else:
-          dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
+        if sidebar.enable_audio_editing:
+          with st.expander("Edit Audio"):
+            create_edit_diatribe(sidebar, characters, dialogue)
         
         org_path = f"./session/{st.session_state.session_id}/audio/dialogue_org.mp3"
-        if sidebar.enable_normalization and os.path.exists(org_path):                    
+        dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
+        if "background_added" in st.session_state:
           y_max, org_plot = el_audio.generate_waveform_from_file(org_path)
+          _, background_plot = el_audio.generate_waveform_from_file(dialogue_path, y_max)
           
-          if "background_added" in st.session_state:
-            normalized_path = f"./session/{st.session_state.session_id}/audio/dialogue_background.mp3"
-          else:
-            normalized_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
-            
-          _, normalized_plot = el_audio.generate_waveform_from_file(normalized_path, y_max)
-          
+          st.markdown(f"Adjustments: {st.session_state['background_added']}")
           col1, col2 = st.columns([1, 1])
           with col1:
             st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
             st.audio(org_path)    
             st.pyplot(org_plot)
           with col2:
-            st.markdown("<p style='font-size:14px'>Normalized</p>", unsafe_allow_html=True)
-            st.audio(normalized_path)                      
-            st.pyplot(normalized_plot)
+            st.markdown("<p style='font-size:14px'>Edited Audio</p>", unsafe_allow_html=True)
+            st.audio(dialogue_path)                      
+            st.pyplot(background_plot)
         else:                  
           st.audio(dialogue_path)
           _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
@@ -344,11 +323,7 @@ if __name__ == "__main__":
         with open(dialogue_path, "rb") as mp3_audio:
           with stylable_container(
             key="download_dialogue_button",
-            css_styles="""
-              button {
-                background-color: #545454;
-              }
-            """
+            css_styles=button_style
           ):
             st.download_button(
               label="Download Final Dialogue",
