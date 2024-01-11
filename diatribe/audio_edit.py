@@ -387,7 +387,7 @@ def create_edit_dialogue_line(line: Dialogue, audio_file: str) -> None:
                     use_container_width=True
                 )
                 if apply_edits:
-                    _, new_line_audio, _ = el_audio.edit_audio(
+                    _, new_line_audio = el_audio.edit_audio(
                         audio_file, 
                         effect_path,
                         effect_start,
