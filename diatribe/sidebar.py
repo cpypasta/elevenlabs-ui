@@ -13,11 +13,9 @@ class SidebarData:
   voice_names: list[str]
   enable_instructions: bool
   enable_audio_editing: bool
-  enable_normalization: bool
   stability: float
   simarlity_boost: float
   style: float
-  join_gap: int  
   openai_api_key: str
   openai_model: str
   openai_temp: float
@@ -121,12 +119,7 @@ def create_sidebar() -> SidebarData:
           value=False,
           help="Enable audio editing for each dialogue line. This is disabled by default to increase performance."
         )
-        normalize_audiobook = st.toggle(
-          "Enable Normalization", 
-          value=False, 
-          help="Adjusts the final dialogue to meet the audiobook standards. The standard states that the audio should have a celing of -3dB and a range of -18dB to -23dB."
-        )
-                                  
+                           
         stability = st.slider(
           "Stability", 
           0.0, 
@@ -147,15 +140,7 @@ def create_sidebar() -> SidebarData:
           1.0,
           value=0.0,
           help="High values are recommended if the style of the speech should be exaggerated compared to the uploaded audio. Higher values can lead to more instability in the generated speech. Setting this to 0.0 will greatly increase generation speed and is the default setting."
-        )
-        join_gap = st.slider(
-          "Gap Between Dialogue",
-          0,
-          1000,
-          step=10,
-          value=200,
-          help="The gap between spoken lines in milliseconds."
-        )        
+        )   
       
       with st.expander("OpenAI Options"):
         if os.getenv("OPENAI_API_KEY"):
@@ -231,11 +216,9 @@ def create_sidebar() -> SidebarData:
         voice_names=el_voice_names,
         enable_instructions=show_instructions,
         enable_audio_editing=edit_audio,
-        enable_normalization=normalize_audiobook,
         stability=stability,
         simarlity_boost=simarlity_boost,
         style=style,
-        join_gap=join_gap,
         openai_api_key=openai_api_key,
         openai_model=openai_model,
         openai_temp=openai_temp,
@@ -249,11 +232,9 @@ def create_sidebar() -> SidebarData:
         voice_names=[],
         enable_instructions=True,
         enable_audio_editing=False,
-        enable_normalization=False,
         stability=0.35,
         simarlity_boost=0.80,
         style=0.0,
-        join_gap=200,
         openai_api_key="",
         openai_model="",
         openai_temp=1.5,

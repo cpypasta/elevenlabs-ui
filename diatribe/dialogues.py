@@ -100,7 +100,8 @@ def convert_dialogue_import_into_data(data: str) -> dict:
   for line in dialogue_input.split("\n"):
     if line.startswith("#"):
       continue
-    speaker, text = line.split(":")
+    speaker, *text = line.split(":")
+    text = text[0]
     character = next((c for c in characters if c["Name"] == speaker), None)
     dialogues.append({ "Speaker": speaker, "Text": text.strip() })
   

@@ -30,3 +30,8 @@ def log(message: str) -> None:
   """Log a message to the console."""
   logger = get_logger()
   logger.info(message)
+  
+
+def remove_state(key: str) -> None:
+  if key in st.session_state:
+    del st.session_state[key]

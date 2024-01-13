@@ -1,6 +1,6 @@
 # CHARACTERS
 Narrator|Valentino: He will narrate the story.
-Nick|Nickalina (cloned): A young man who is an easy going guy. He is quiet, but those who know him like him a lot.
+Nick|Nick (cloned): A young man who is an easy going guy. He is quiet, but those who know him like him a lot.
 Alyssa|Alyssa (cloned): A young woman who just graduated from high school and is a waitress. She is extremely shy, but she is nice and hard working.
 
 # PLOT

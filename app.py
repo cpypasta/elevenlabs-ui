@@ -46,7 +46,7 @@ if __name__ == "__main__":
     if sidebar.enable_instructions:
       st.markdown("This is where you setup and define what characters are in your dialogue along with what voice the character should use. You can use the `Voice Explorer` in the sidebar if you want to hear what a voice sounds like.")
       with st.expander("**WARNING**: changing characters can clear the dialogue"):
-        st.info("Adding or removing characters and modifying names will clear or reset the dialogue. That being said, you can freely change the voices without affecting the dialogue.")      
+        st.info("Adding characters, removing characters, and modifying character names will clear or reset the dialogue. That being said, you can freely change the voices, groups, and description without affecting the dialogue.")      
     
     with st.expander("Import Characters & Dialogue"):
       uploaded_dialogue = None
@@ -64,6 +64,7 @@ if __name__ == "__main__":
             del st.session_state["generated_dialogue"]
           if "final_audio" in st.session_state:
             del st.session_state["final_audio"]
+          st.toast("The dialogue has been imported.", icon="👍")
     
     if "imported_characters" in st.session_state:
       character_data = st.session_state["imported_characters"]     
@@ -113,7 +114,7 @@ if __name__ == "__main__":
         row["Voice"], 
         get_voice_id(row["Voice"], sidebar.voices),
         description=row["Description"],
-        group=int(row["Group"])
+        group=int(row["Group"]) if row["Group"] is not None else 1
       )
       characters.append(c)
     character_names = [character.name for character in characters]
@@ -209,6 +210,9 @@ if __name__ == "__main__":
           del st.session_state["audio_process_error"]
         generate_audio_bar = st.progress(0, text=progress_text)
         for i, line in enumerate(dialogue):
+          if line.character.voice_id is None:
+            st.toast(f"Error: voice ID not found for `{line.character.voice}`.", icon="👎")
+            break
           try:
             audio_file = el_audio.generate_and_save(line.text, line.character.voice_id, line.line, sidebar) 
             audio_files.append(audio_file)
@@ -229,10 +233,8 @@ if __name__ == "__main__":
           st.session_state["audio_files"] = audio_files
       
       if saves.prepare_project:
-        export_path = f"./session/{st.session_state.session_id}/export"
-        shutil.rmtree(export_path, ignore_errors=True)
         export_dialogue(character_table, dialogue_table, sidebar.voices)
-        el_audio.export_audio(get_lines(dialogue))
+        export_path = el_audio.export_audio(get_lines(dialogue))
         project_path = f"./session/{st.session_state.session_id}/project"
         os.makedirs(project_path, exist_ok=True)
         shutil.make_archive(f"{project_path}/project", "zip", export_path)
@@ -251,7 +253,7 @@ if __name__ == "__main__":
           
           col1, col2 = st.columns([9, 1])
           with col1:     
-            audio_file = f"./session/{st.session_state.session_id}/audio/line{line.line}.mp3"
+            audio_file = f"./session/{st.session_state.session_id}/audio/line{line.line}.wav"
             if os.path.exists(audio_file):     
               with open(audio_file, "rb") as audio:  
                 st.audio(audio)
@@ -283,9 +285,7 @@ if __name__ == "__main__":
         line_indices = [d.line for d in dialogue]
         if join_dialogue:          
           el_audio.join_audio(
-            line_indices, 
-            sidebar.join_gap, 
-            normalize=sidebar.enable_normalization
+            line_indices
           )
           st.session_state["final_audio"] = True
       
@@ -296,29 +296,12 @@ if __name__ == "__main__":
           st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
         
         if sidebar.enable_audio_editing:
-          with st.expander("Edit Audio"):
-            create_edit_diatribe(sidebar, characters, dialogue)
+          create_edit_diatribe(sidebar, characters, dialogue)
         
-        org_path = f"./session/{st.session_state.session_id}/audio/dialogue_org.mp3"
-        dialogue_path = f"./session/{st.session_state.session_id}/audio/dialogue.mp3"
-        if "background_added" in st.session_state:
-          y_max, org_plot = el_audio.generate_waveform_from_file(org_path)
-          _, background_plot = el_audio.generate_waveform_from_file(dialogue_path, y_max)
-          
-          st.markdown(f"Adjustments: {st.session_state['background_added']}")
-          col1, col2 = st.columns([1, 1])
-          with col1:
-            st.markdown("<p style='font-size:14px'>Original</p>", unsafe_allow_html=True)
-            st.audio(org_path)    
-            st.pyplot(org_plot)
-          with col2:
-            st.markdown("<p style='font-size:14px'>Edited Audio</p>", unsafe_allow_html=True)
-            st.audio(dialogue_path)                      
-            st.pyplot(background_plot)
-        else:                  
-          st.audio(dialogue_path)
-          _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
-          st.pyplot(fig)
+        dialogue_path = f"./session/{st.session_state.session_id}/final/audio/dialogue.mp3"
+        st.audio(dialogue_path)
+        _, fig = el_audio.generate_waveform_from_file(dialogue_path)       
+        st.pyplot(fig)
           
         with open(dialogue_path, "rb") as mp3_audio:
           with stylable_container(

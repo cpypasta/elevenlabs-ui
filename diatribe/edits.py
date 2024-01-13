@@ -17,6 +17,14 @@ class Pedal(ABC):
         pass
 
 
+class EmptyEdit(AudioEdit):
+    def is_enabled(self) -> bool:
+        return False
+    
+    def adjustments(self) -> list[str]:
+        return []
+
+
 @dataclass
 class ReverbEdit(AudioEdit, Pedal):
     room_size: float = 0.0
@@ -58,6 +66,7 @@ class NoiseGateEdit(AudioEdit, Pedal):
 @dataclass
 class LimiterEdit(AudioEdit, Pedal):
     threshold: float = 0.0
+    release: float = 0.0
     
     def is_enabled(self) -> bool:
         return self.threshold != 0.0
@@ -68,6 +77,7 @@ class LimiterEdit(AudioEdit, Pedal):
     def as_pedal(self) -> Limiter:
         return Limiter(
             threshold_db=self.threshold,
+            release_ms=self.release
         )
     
 @dataclass
@@ -89,6 +99,8 @@ class DistortionEdit(AudioEdit, Pedal):
 class CompressorEdit(AudioEdit, Pedal):
     threshold: float = 0.0
     ratio: float = 0.0
+    attack: float = 0.0
+    release: float = 0.0
     
     def is_enabled(self) -> bool:
         return self.threshold != 0.0
@@ -99,7 +111,9 @@ class CompressorEdit(AudioEdit, Pedal):
     def as_pedal(self) -> Compressor:
         return Compressor(
             threshold_db=self.threshold,
-            ratio=self.ratio
+            ratio=self.ratio,
+            attack_ms=self.attack,
+            release_ms=self.release
         )
         
 @dataclass
@@ -170,3 +184,13 @@ class BackgroundEdit(AudioEdit):
     
     def adjustments(self) -> list[str]:
         return [f"Background:{self.name}"]    
+    
+@dataclass
+class NormalizationEdit(AudioEdit):
+    enabled: bool = False
+    
+    def is_enabled(self) -> bool:
+        return self.enabled
+    
+    def adjustments(self) -> list[str]:
+        return ["Audiobook Normalization"]

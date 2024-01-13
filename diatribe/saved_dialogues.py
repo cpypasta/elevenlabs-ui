@@ -3,6 +3,8 @@ import streamlit as st
 from diatribe.dialogues import convert_dialogue_import_into_data
 from dataclasses import dataclass
 from diatribe.el_audio import import_audio
+from diatribe.utils import remove_state
+from diatribe.utils import log
 
 @dataclass
 class SavedDialogueData:
@@ -35,14 +37,19 @@ def import_project(project_path: str) -> None:
   with open(dialogue_path, "rb") as f:
     dialogue = f.read()
   convert_imported_dialogue(dialogue)   
-  imported_audio_files = import_audio(f"{project_path}/audio")
+  imported_audio_files = import_audio(project_path)
+  if len(imported_audio_files) == 0:
+    log("No audio files were imported.")
+    remove_state("audio_files")
+    remove_state("final_audio")
+    return
   st.session_state["audio_files"] = imported_audio_files
   st.toast("The project has been imported.", icon="👍") 
-  dialogue_included = any(["dialogue.mp3" in f for f in imported_audio_files])
+  dialogue_included = os.path.exists(f"{project_path}/final/audio/dialogue.mp3")
   if dialogue_included:
     st.session_state["final_audio"] = True
-  elif "final_audio" in st.session_state: 
-    del st.session_state["final_audio"]
+  else:
+    remove_state("final_audio")
 
 @st.cache_data
 def sample_project_names() -> list[str]:
@@ -73,9 +80,10 @@ def create_saved_dialogues():
         imported_project = st.file_uploader("Project", type=["zip"])
         submit_upload_project = st.form_submit_button("Import", use_container_width=True)
         if imported_project and submit_upload_project:
-          bytes_data = imported_project.getvalue()
-          package_path = unzip_package(bytes_data)
-          import_project(package_path)
+          with st.spinner("Importing project..."):
+            bytes_data = imported_project.getvalue()
+            package_path = unzip_package(bytes_data)
+            import_project(package_path)
             
     with export_tab:
       prepare_project=st.button("Prepare Download", use_container_width=True, help="Prepare the dialogue and audio for export")
