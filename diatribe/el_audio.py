@@ -7,7 +7,7 @@ from elevenlabs import Voice, VoiceSettings, Model, Models, voices as el_voices,
 from pydub import AudioSegment as seg
 from pedalboard import Pedalboard, Plugin
 from pedalboard.io import AudioFile
-from pathlib import Path
+from math import ceil
 from diatribe.sidebar import SidebarData
 from diatribe.utils import log
 from diatribe.edits import *
@@ -35,6 +35,9 @@ class Soundboard:
   
   def background(self) -> BackgroundEdit:
     return self._get(BackgroundEdit)
+  
+  def special_effect(self) -> SpecialEffectEdit:
+    return self._get(SpecialEffectEdit)
   
   def normalization(self) -> NormalizationEdit:
     return self._get(NormalizationEdit)
@@ -310,7 +313,6 @@ def join_parts(
   )
   
 
-# TODO: this should probably go away, since it is so different than final editing
 def join_audio(
   line_indices: list[int], 
   join_gap: int = 200, 
@@ -338,24 +340,26 @@ def join_audio(
   
   gap = seg.silent(join_gap)
   segments: list[seg] = []
-  progress_text = "Joining audio..."
+  progress_text = "Preparing audio..."
   joining_audio_bar = st.progress(0, text=progress_text)          
   for i, file in enumerate(audio_files):
     if os.path.exists(file):
       segments.append(seg.from_mp3(file))
     joining_audio_bar.progress(round((i+1) / len(audio_files), 2), text=progress_text)
+  joining_audio_bar.empty()
     
+  progress_text = "Joining audio..."
+  joining_audio_bar = st.progress(0, text=progress_text) 
   final_audio = segments[0]
   for i, s in enumerate(segments[1:]):
-    final_audio += gap + s
+    final_audio += gap + s.fade_out(300)
     joining_audio_bar.progress(round((i+1) / len(segments[1:]), 2), text=progress_text)  
   
   final_audio.export(f"{destination_path}/dialogue.mp3", format="mp3") 
-  log(f"joined audio: {f'{destination_path}/dialogue.mp3'}")
+  joining_audio_bar.empty()
   
   if "background_added" in st.session_state:
     del st.session_state["background_added"]
-  joining_audio_bar.empty()
   
   
 def clear_audio_files() -> None:
@@ -438,8 +442,13 @@ def prepare_background(dialogue_file: str, background_file: str, edit: Backgroun
   
   dialogue: seg = seg.from_mp3(dialogue_file)
   background: seg = seg.from_mp3(background_file)
-  if background.duration_seconds > dialogue.duration_seconds:
-    background = background[:dialogue.duration_seconds * 1000]
+  if len(background) > len(dialogue):
+    background = background[:len(dialogue)]
+  if len(dialogue) > len(background):
+    difference = len(dialogue) - len(background)
+    repeats = ceil(difference / len(background)) + 1
+    background = background * repeats
+    background = background[:len(dialogue)]
   if edit.volume > 0:
     background = background - edit.volume
   if edit.fade_in:
@@ -449,30 +458,16 @@ def prepare_background(dialogue_file: str, background_file: str, edit: Backgroun
   return dialogue, background
 
 
-def apply_edits(audio_path: str, soundboard: Soundboard) -> seg:
-  """Apply the soundboard edits to the audio."""
-  audio: seg = seg.from_mp3(audio_path)
-  audio = apply_basic(audio, soundboard)
-  audio = apply_soundboard(audio, soundboard)
-  return audio
-
-
-def edit_audio(
-  speech_path: str, 
-  effect_path: str = None,
-  start_effect: float = None,
-  effect_volume: int = None,
-  effect_repeat: int = None,
-  effect_fade_out: int = None,
-  soundboard: Soundboard = None
-) -> seg:
-  """Edit the audio file by changing the volume."""
-  audio = apply_edits(speech_path, soundboard)
-    
-  # effects
-  effect = None
-  if effect_path:
+def apply_special_effect(audio: seg, soundboard: Soundboard) -> seg:
+  special_effect = soundboard.special_effect()
+  if special_effect.is_enabled():
     log("applying effect")
+    effect_path = special_effect.path
+    effect_volume = special_effect.volume
+    effect_repeat = special_effect.repeat
+    start_effect = special_effect.start
+    effect_fade_out = special_effect.fade_out
+    
     effect: seg = seg.from_file(effect_path)
     if effect_volume:
       effect = effect + effect_volume
@@ -491,27 +486,35 @@ def edit_audio(
     elif effect_fade_out:
       effect = effect.fade_out(effect_fade_out)
     
-    audio = audio.overlay(effect, position=start_effect * 1000)
+    audio = audio.overlay(effect, position=start_effect * 1000)  
+  return audio
+
+
+def apply_edits(audio_path: str, soundboard: Soundboard) -> seg:
+  """Apply the soundboard edits to the audio."""
+  audio: seg = seg.from_mp3(audio_path)
+  audio = apply_basic(audio, soundboard)
+  audio = apply_soundboard(audio, soundboard)
+  audio = apply_special_effect(audio, soundboard)
+  return audio
+
+
+def edit_audio(
+  speech_path: str, 
+  soundboard: Soundboard = None
+) -> seg:
+  """Edit the audio file by changing the volume."""
+  audio = apply_edits(speech_path, soundboard)
   return audio
 
 
 def preview_audio(
   speech_path: str, 
-  effect_path: str = None,
-  start_effect: float = None,
-  effect_volume: int = None,
-  effect_repeat: int = None,
-  effect_fade_out: int = None,
   soundboard: Soundboard = None
 ) -> bytes:
   """Preview the audio file after editing."""
   audio = edit_audio(
     speech_path, 
-    effect_path, 
-    start_effect,
-    effect_volume,
-    effect_repeat,
-    effect_fade_out,
     soundboard
   )
   return segment_to_bytes(audio)

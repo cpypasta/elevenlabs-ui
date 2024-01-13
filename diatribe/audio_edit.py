@@ -388,7 +388,6 @@ def create_edit_dialogue_line(line: Dialogue, audio_file: str) -> None:
                 ])
                 soundboard.add(basic)
                  
-            # TODO: make special effect and edit too?           
             with special_tab:
                 st.markdown("### 💥 Special Effect")
                     
@@ -462,12 +461,14 @@ def create_edit_dialogue_line(line: Dialogue, audio_file: str) -> None:
                             key=f"effect_repeat_{line.line}",
                             help="If you want the effect to repeat itself."
                         )
-                else:
-                    effect_path = None
-                    effect_start = None
-                    effect_volume = None
-                    effect_repeat = None
-                    effect_fade_out = None
+                    soundboard.add(SpecialEffectEdit(
+                        effect_name, 
+                        effect_path, 
+                        effect_volume, 
+                        effect_fade_out, 
+                        effect_start, 
+                        effect_repeat
+                    ))
                     
             st.divider()
             with st.form(f"preview_edit_{line.line}", clear_on_submit=False, border=False):
@@ -478,17 +479,10 @@ def create_edit_dialogue_line(line: Dialogue, audio_file: str) -> None:
                 if preview_line:
                     preview_audio = el_audio.preview_audio(
                         audio_file, 
-                        effect_path,
-                        effect_start,
-                        effect_volume,
-                        effect_repeat,
-                        effect_fade_out,
                         soundboard
                     )                          
                 
                     adjustments = soundboard.adjustments()
-                    if effect_name:
-                        adjustments.append(f"`{effect_name.capitalize()}`")
                     if len(adjustments) > 0:
                         st.markdown(f"Adjustments: {' '.join(sorted(adjustments))}")  
                         org_audio_waveform, new_audio_waveform = st.columns([1, 1])
@@ -512,12 +506,7 @@ def create_edit_dialogue_line(line: Dialogue, audio_file: str) -> None:
                 )
                 if apply_edits:
                     new_line_audio = el_audio.edit_audio(
-                        audio_file, 
-                        effect_path,
-                        effect_start,
-                        effect_volume,
-                        effect_repeat,
-                        effect_fade_out,
+                        audio_file,
                         soundboard                
                     )
                     new_line_audio.export(audio_file, format="mp3")

@@ -194,3 +194,19 @@ class NormalizationEdit(AudioEdit):
     
     def adjustments(self) -> list[str]:
         return ["Audiobook Normalization"]
+    
+    
+@dataclass
+class SpecialEffectEdit(AudioEdit):
+    name: str = None
+    path: str = None
+    volume: int = 0
+    fade_out: int = 0
+    start: int = 0
+    repeat: int = 1
+    
+    def is_enabled(self) -> bool:
+        return self.name and self.path
+    
+    def adjustments(self) -> list[str]:
+        return [f"Special Effect:{self.name}"]
