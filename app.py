@@ -6,7 +6,6 @@ import diatribe.el_audio as el_audio
 import diatribe.saved_dialogues as saved_dialogues
 from dotenv import load_dotenv
 from streamlit_extras.stylable_container import stylable_container
-from streamlit_card import card
 from diatribe.dialogues import Character, Dialogue, get_voice_id, export_dialogue, get_lines
 from diatribe.sidebar import create_sidebar
 from diatribe.saved_dialogues import create_saved_dialogues

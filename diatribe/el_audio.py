@@ -183,19 +183,30 @@ def export_audio(lines_to_copy: list[int], include_dialogue: bool = True) -> str
 
 
 def import_source_audio(src_dir: str, dst_dir: str) -> None:
-  if os.path.exists(dst_dir):
-    shutil.rmtree(dst_dir)
   shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True) 
 
 
 def import_audio(src_dir: str) -> list[str]:
+  dest_audio = f"./session/{st.session_state.session_id}/audio"
+  dest_final_audio = f"./session/{st.session_state.session_id}/final/audio"
+  if os.path.exists(dest_audio):
+    shutil.rmtree(dest_audio)
+  if os.path.exists(dest_final_audio):
+    shutil.rmtree(dest_final_audio)
+  os.makedirs(dest_audio, exist_ok=True)
+  os.makedirs(dest_final_audio, exist_ok=True)
+  
   line_dir = f"{src_dir}/audio"
   if os.path.exists(line_dir):
-    import_source_audio(line_dir, f"./session/{st.session_state.session_id}/audio")
+    import_source_audio(line_dir, dest_audio)
   final_dir = f"{src_dir}/final/audio"
-  if os.path.exists(final_dir):
-    import_source_audio(final_dir, f"./session/{st.session_state.session_id}/final/audio")
-  return glob.glob(f"./session/{st.session_state.session_id}/audio/line*.wav")
+  if os.path.exists(final_dir) and len(glob.glob(f"{final_dir}/line*")) > 0:
+    import_source_audio(final_dir, dest_final_audio)
+  else:
+    if os.path.exists(f"{final_dir}/dialogue.mp3"):
+      shutil.copy(f"{final_dir}/dialogue.mp3", f"{dest_final_audio}/dialogue.mp3")
+    import_source_audio(line_dir, dest_final_audio)
+  return glob.glob(f"{dest_audio}/line*.wav")
 
 
 def get_generated_audio() -> list[str]:
