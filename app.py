@@ -292,7 +292,7 @@ if __name__ == "__main__":
       if show_final_audio():
         st.header("Audio Diatribe")
         if sidebar.enable_instructions:
-          st.markdown("Here is the final dialogue with all the lines joined together. The gap between the lines is controlled by the `Gap Between Dialogue` setting in the sidebar under `Dialogue Options`. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
+          st.markdown("Here is the final dialogue with all the lines joined together. If you are unhappy about specific lines, then just click the `Redo` button on the line above and click `Join Dialogue` again.")        
         
         if sidebar.enable_audio_editing:
           create_edit_diatribe(sidebar, characters, dialogue)
